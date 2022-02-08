@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 import torch
-import os, argparse
+import numpy
+import os, argparse, collections
 from dlModel import DLModel
 from svmModel import SVMModel
 
@@ -25,42 +26,99 @@ def parse_arguments():
 def dir_path(path):
   if os.path.isabs(path):
       return path
-  else:
-      raise argparse.ArgumentTypeError(f"readable_dir: {path} is not a valid path")
+  raise argparse.ArgumentTypeError(f"readable_dir: {path} is not a valid path")
 
 
-def extract_features(args, model):
-  print("Extracting features from...")
-  features = {}
-  for cat_dir in sorted(os.listdir(args.d)):
-    print(F"category: {cat_dir}")
+def file_iterable(path):
+  for cat_dir in sorted(os.listdir(path)):
     cat_name = os.fsdecode(cat_dir)
-    files = sorted(os.listdir(F'{args.d}{cat_name}'))
-    idx = 0
-    features[cat_name] = torch.empty((len(files), 2048)) # 2048 is number of elements in last layer of ResNet-50
-    for file in files:
-      feature = model.extract(F'{args.d}{cat_name}/{file}')
-      features[cat_name][idx,:] = feature
-      idx += 1
+    for file_name in sorted(os.listdir(F'{path}{cat_name}')):
+      yield (cat_name, file_name)
+   
 
+def extract_features(model, path):
+  print("Extract features from...")
+  category = ""
+  features = {}
+  for cat_name, file_name in file_iterable(path):
+    feature = model.extract(F'{path}{cat_name}/{file_name}')
+    if category == cat_name:
+      features[cat_name] = torch.cat([features[cat_name], feature.reshape(1, -1)], dim=0) # construct feature matrix
+    else:
+      print(F'Category: {cat_name}')
+      features[cat_name] = feature.reshape(1, -1)
+    category = cat_name
   return features
+
+
+def prepare(model, path):
+  print("Prepare data...")
+  X_train = []
+  y_train = []
+  for cat_name, file_name in file_iterable(path):
+    feature = model.extract(F'{path}{cat_name}/{file_name}')
+    X_train.append(feature.numpy())
+    y_train.append(cat_name)
+  return (numpy.asarray(X_train), y_train)
+
+
+def print_class_acc(data, category):
+  print(F"Classified {data[0]:2} of {data[1]} images ({100 * data[0] / data[1]:6.2f}%) with {category}")
+  
+  
+def print_total_acc(categories):
+  total = numpy.sum(list(categories.values()), axis=0)
+  print(F"\nAccuracy: {total[0]:3} of {total[1]} images ({100 * total[0] / total[1]:6.2f}%)")
+  
+  
+def predict(model, features, params):
+  print("Scoring...")
+  categories = collections.defaultdict(lambda: [0,0]) # store number of correct identifiactions and total number of identifications per category
+  category = ""
+  distances = []
+  labels = []
+  
+  if params.neighbor:
+    max_number_features = max([len(f) for f in features.values()]) # variable with maximum number of features for one category
+    distances = numpy.zeros((len(features), max_number_features)) # preserve all distances here
+
+  for cat_name, file_name in file_iterable(params.d_test):
+    X_test = model.extract(F'{params.d_test}{cat_name}/{file_name}')
+    y_test = model.predict(X_test, features, distances, labels, params)
+    print(y_test)
+    print(cat_name)
+    
+    categories[cat_name][0] += y_test == cat_name # we only increase when category has been correctly identified
+    categories[cat_name][1] += 1 # always increase after each iteration s.t. we have the total number
+      
+    if category != cat_name and category:
+      # print rates for the current category
+      print_class_acc(categories[category], category)
+    category = cat_name
+    
+  print_class_acc(categories[category], category) # print last category
+  print_total_acc(categories) # print total accuracy
 
 
 def main():
   parsed_args = parse_arguments()
-  if (parsed_args.svm):
-    model = SVMModel(device=device, params=parsed_args)
-  else: 
-    model = DLModel(device=device, params=parsed_args)
-  if parsed_args.extract:
-    features = extract_features(parsed_args, model)
-    torch.save(features, 'features.pt')
-  else: 
-    features = torch.load('features.pt')
-  model.predict(features)
-
+  features = {}
+  if (parsed_args.svm): # use SVM Model
+    model = SVMModel(device=device)
+    X_train, y_train = prepare(model, parsed_args.d)
+    print(X_train.shape)
+    print(y_train)
+    model.fit(X_train, y_train)
+  else: # use Deep Learning Model
+    model = DLModel(device=device)
+    if parsed_args.extract:
+      features = extract_features(model, parsed_args.d)
+      torch.save(features, 'features.pt')
+    else:
+      features = torch.load('features.pt')
+  
+  predict(model, features, parsed_args)
+  
 
 if __name__ == "__main__":
   main()
-
-

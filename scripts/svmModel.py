@@ -1,23 +1,26 @@
 from baseModel import BaseModel
 from sklearn import svm
 import torch
-import torchvision
 import PIL
 
 
 class SVMModel(BaseModel):
-    def __init__(self, device, params):
-        super().__init__(device, params)
-        self.model = svm.SVC(kernel='linear', decision_function_shape='ovr', max_iter=1000)
-        self.model.to(device) # save on GPU
+  def __init__(self, device):
+    super().__init__(device)
+    self.model = svm.SVC(kernel='linear', decision_function_shape='ovr', max_iter=1000)
 
 
-    def extract(self, path):
-        with torch.no_grad(): # no training
-            image = PIL.Image.open(path, 'r').convert('RGB') # open image skip transparency channel
-            tensor = self.transform(image) # apply transformation defined above
-            tensor = tensor.to(self.device) # save on GPU
-            return torch.flatten(tensor).cpu()
+  def extract(self, path):
+    image = PIL.Image.open(path, 'r').convert('RGB') # open image skip transparency channel
+    tensor = self.transform(image) # apply transformation defined in baseModel
+    return torch.flatten(tensor)
 
-    def predict(self):
-        pass
+
+  def fit(self, X_train, y_train):
+    print("Fit SVM Model...")
+    self.model.fit(X_train, y_train)
+      
+        
+  def predict(self, X_test, *args, **kwargs):
+    [y_test] = self.model.predict(X_test.reshape(1, -1)) # returns only one element
+    return y_test
