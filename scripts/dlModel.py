@@ -13,12 +13,26 @@ class DLModel(BaseModel):
     self.model = torch.nn.Sequential(*modules)
     self.model.eval() # evaluation mode
     self.model.to(device) # save on GPU
+    self.transforms = self.__define_img_transforms()
+    
+    
+  def __define_img_transforms(self):
+    return torchvision.transforms.Compose([
+      torchvision.transforms.Resize(224), # otherwise we would loose image information at the border
+      torchvision.transforms.CenterCrop(224), # take only center from image
+      torchvision.transforms.ToTensor(), # image to tensor
+      torchvision.transforms.Normalize(
+          mean=[0.485, 0.456, 0.406],
+          std=[0.229, 0.224, 0.225]
+      ),  # scale pixel values to range [-3,3]
+      lambda x : x.unsqueeze(0) # required by pytorch (add batch dimension)
+    ])
     
     
   def extract(self, path):
     with torch.no_grad(): # no training
         image = PIL.Image.open(path, 'r').convert('RGB') # open image skip transparency channel
-        tensor = self.transform(image) # apply transformation defined in baseModel
+        tensor = self.transforms(image)
         tensor = tensor.to(self.device) # save on GPU
         feature = self.model(tensor) # get model output
         return torch.flatten(feature).cpu()
@@ -70,3 +84,14 @@ class DLModel(BaseModel):
     p1 = numpy.sqrt(numpy.sum(A**2, axis=1))[:,numpy.newaxis]
     p2 = numpy.sqrt(numpy.sum(B**2, axis=1))[numpy.newaxis,:]
     return num / (p1 * p2)
+  
+      
+  def step_iter(self, features, step):
+    n = step
+    samples_per_cat = max(f.size()[0] for f in features.values()) # retrieve maximum number of samples per category
+    while(n <= samples_per_cat): # increase steps till no more samples are left
+      features_filtered = {}
+      for cat, feature in features.items():
+        features_filtered[cat] = feature[0:n] # only store n samples per category if that many exist
+      n += step
+      yield (features_filtered)
