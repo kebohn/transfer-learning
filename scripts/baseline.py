@@ -2,7 +2,8 @@
 
 import torch
 import numpy
-import os, argparse, collections
+import matplotlib.pyplot as plt
+import os, argparse, collections, json
 from dlModel import DLModel
 from svmModel import SVMModel
 
@@ -63,13 +64,15 @@ def prepare(model, path):
   return (X_train_std, y_train)
 
 
-def print_class_acc(data, category):
+def class_acc(data, category):
   print(F"Classified {data[0]:2} of {data[1]} images ({100 * data[0] / data[1]:6.2f}%) with {category}")
+  return data[0] / data[1]
 
 
-def print_total_acc(categories):
+def total_acc(categories):
   total = numpy.sum(list(categories.values()), axis=0)
   print(F"\nAccuracy: {total[0]:3} of {total[1]} images ({100 * total[0] / total[1]:6.2f}%)")
+  return total[0] / total[1]
 
 
 def predict(model, params, features=[]):
@@ -78,7 +81,10 @@ def predict(model, params, features=[]):
   category = ""
   distances = []
   labels = []
-
+  res = {}
+  res["cat_acc"] = []
+  res["categories"] = []
+ 
   if params.neighbor:
     max_number_features = max([len(f) for f in features.values()]) # variable with maximum number of features for one category
     distances = numpy.zeros((len(features), max_number_features)) # preserve all distances here
@@ -92,21 +98,36 @@ def predict(model, params, features=[]):
 
     if category != cat_name and category:
       # print rates for the current category
-      print_class_acc(categories[category], category)
+      res["cat_acc"].append(class_acc(categories[category], category))
+      res["categories"].append(category)
     category = cat_name
 
-  print_class_acc(categories[category], category) # print last category
-  print_total_acc(categories) # print total accuracy
-
+  res["cat_acc"].append(class_acc(categories[category], category)) # print last category
+  res["categories"].append(category)
+  res["total_acc"] = total_acc(categories) # print total accuracy
+  
+  return res
+  
+def save_histogram(res):
+  fig, axes = plt.subplots(figsize=(7,5), dpi=100)
+  plt.bar(list(res.keys()), height=[obj["total_acc"] for obj in res.values()])
+  plt.title('Accuracy')
+  plt.savefig("figure.jpg")
+  
 
 def main():
   parsed_args = parse_arguments()
+  res = {}
   if (parsed_args.svm): # use SVM Model
     model = SVMModel(device=device)
     X_train, y_train = prepare(model, parsed_args.d)
-    for X_train_filtered, y_train_filtered in model.step_iter(X_train, y_train, parsed_args.step):
+    for X_train_filtered, y_train_filtered, n in model.step_iter(X_train, y_train, parsed_args.step):
       model.fit(X_train_filtered, y_train_filtered)
-      predict(model=model, params=parsed_args)
+      res[n] = predict(
+          model=model,
+          params=parsed_args
+        )
+      
   else: # use Deep Learning Model
     model = DLModel(device=device)
     if parsed_args.extract:
@@ -114,8 +135,18 @@ def main():
       torch.save(features, 'features.pt')
     else:
       features = torch.load('features.pt')
-    for features_filtered in model.step_iter(features, parsed_args.step):
-      predict(model=model, params=parsed_args, features=features_filtered)
+    for features_filtered, n in model.step_iter(features, parsed_args.step):
+      res[n] = predict(
+          model=model,
+          params=parsed_args,
+          features=features_filtered
+        )
+   
+  # write result to a file
+  with open('res.json', 'w') as fp:
+    json.dump(res, fp,  indent=4)
+      
+  save_histogram(res)
 
 
 if __name__ == "__main__":

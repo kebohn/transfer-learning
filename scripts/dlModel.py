@@ -94,4 +94,4 @@ class DLModel(BaseModel):
       for cat, feature in features.items():
         features_filtered[cat] = feature[0:n] # only store n samples per category if that many exist
       n += step
-      yield (features_filtered)
+      yield (features_filtered, n - step)

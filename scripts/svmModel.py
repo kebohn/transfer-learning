@@ -56,4 +56,4 @@ class SVMModel(BaseModel):
         X_train_filtered.extend(X_train[i:i+temp_n[idx]])
         y_train_filtered.extend(y_train[i:i+temp_n[idx]])
       n += step
-      yield (X_train_filtered, y_train_filtered)
+      yield (X_train_filtered, y_train_filtered, n - step)
