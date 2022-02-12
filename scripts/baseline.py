@@ -89,9 +89,24 @@ def predict(model, params, features=[]):
     max_number_features = max([len(f) for f in features.values()]) # variable with maximum number of features for one category
     distances = numpy.zeros((len(features), max_number_features)) # preserve all distances here
 
+  if params.svm:
+    svmModel = SVMModel(device="not used here")
+    y_train = []
+    X_train = []
+    for key, val in features.items():
+      y_train.extend(numpy.repeat(key, val.size()[0]))
+      tmp = numpy.split(val.numpy(), val.size()[0])
+      X_train.extend([i.flatten() for i in tmp])
+    X_strain_std = svmModel.fit_scaler(X_train)
+    svmModel.fit(X_strain_std, y_train)
+
   for cat_name, file_name in file_iterable(params.d_test):
     X_test = model.extract(F'{params.d_test}{cat_name}/{file_name}')
-    y_test = model.predict(X_test, features, distances, labels, params)
+
+    if params.svm:
+      y_test = svmModel.predict(X_test)
+    else:
+      y_test = model.predict(X_test, features, distances, labels, params)
 
     categories[cat_name][0] += y_test == cat_name # we only increase when category has been correctly identified
     categories[cat_name][1] += 1 # always increase after each iteration s.t. we have the total number
@@ -118,29 +133,30 @@ def save_histogram(res):
 def main():
   parsed_args = parse_arguments()
   res = {}
-  if (parsed_args.svm): # use SVM Model
-    model = SVMModel(device=device)
-    X_train, y_train = prepare(model, parsed_args.d)
-    for X_train_filtered, y_train_filtered, n in model.step_iter(X_train, y_train, parsed_args.step):
-      model.fit(X_train_filtered, y_train_filtered)
-      res[n] = predict(
-          model=model,
-          params=parsed_args
-        )
+
+  # if (parsed_args.svm): # use SVM Model
+  #   model = SVMModel(device=device)
+  #   X_train, y_train = prepare(model, parsed_args.d)
+  #   for X_train_filtered, y_train_filtered, n in model.step_iter(X_train, y_train, parsed_args.step):
+  #     model.fit(X_train_filtered, y_train_filtered)
+  #     res[n] = predict(
+  #         model=model,
+  #         params=parsed_args
+  #       )
       
-  else: # use Deep Learning Model
-    model = DLModel(device=device)
-    if parsed_args.extract:
-      features = extract_features(model, parsed_args.d)
-      torch.save(features, 'features.pt')
-    else:
-      features = torch.load('features.pt')
-    for features_filtered, n in model.step_iter(features, parsed_args.step):
-      res[n] = predict(
-          model=model,
-          params=parsed_args,
-          features=features_filtered
-        )
+  # use Deep Learning Model
+  model = DLModel(device=device)
+  if parsed_args.extract:
+    features = extract_features(model, parsed_args.d)
+    torch.save(features, 'features.pt')
+  else:
+    features = torch.load('features.pt')
+  for features_filtered, n in model.step_iter(features, parsed_args.step):
+    res[n] = predict(
+        model=model,
+        params=parsed_args,
+        features=features_filtered
+      )
    
   # write result to a file
   with open('res.json', 'w') as fp:

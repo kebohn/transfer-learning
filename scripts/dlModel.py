@@ -2,7 +2,7 @@ from baseModel import BaseModel
 import torch
 import torchvision
 import numpy
-import collections, argparse, PIL
+import argparse, PIL
 
 
 class DLModel(BaseModel):
