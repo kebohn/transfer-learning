@@ -21,6 +21,7 @@ def parse_arguments():
   parser.add_argument('--svm', dest='svm', action='store_true', help='Apply Support Vector Machine')
   parser.add_argument('--k', type=int, dest='k', default=5, help='Define k for kNN algorithm (Default: k=5)')
   parser.add_argument('--step', type=int, dest='step', default=5, help='Define step with which training set should be decreased (Default: k=5)')
+  parser.add_argument('--unbalanced', dest='unbalanced', action='store_true', help='Define if dataset is unbalanced (Default: false)')
   return parser.parse_args()
 
 
@@ -69,7 +70,11 @@ def class_acc(data, category):
   return data[0] / data[1]
 
 
-def total_acc(categories):
+def total_acc(categories, class_accs, params):
+  if params.unbalanced:
+    acc_mean = numpy.mean(class_accs)
+    print(F"\nAccuracy: {acc_mean * 100:6.2f}%")
+    return acc_mean
   total = numpy.sum(list(categories.values()), axis=0)
   print(F"\nAccuracy: {total[0]:3} of {total[1]} images ({100 * total[0] / total[1]:6.2f}%)")
   return total[0] / total[1]
@@ -119,7 +124,7 @@ def predict(model, params, features=[]):
 
   res["cat_acc"].append(class_acc(categories[category], category)) # print last category
   res["categories"].append(category)
-  res["total_acc"] = total_acc(categories) # print total accuracy
+  res["total_acc"] = total_acc(categories, res["cat_acc"], params) # print total accuracy
   
   return res
   
