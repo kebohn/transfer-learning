@@ -127,12 +127,14 @@ def predict(model, params, features=[]):
   res["total_acc"] = total_acc(categories, res["cat_acc"], params) # print total accuracy
   
   return res
-  
-def save_histogram(res):
-  fig, axes = plt.subplots(figsize=(7,5), dpi=100)
-  plt.bar(list(res.keys()), height=[obj["total_acc"] for obj in res.values()])
-  plt.title('Accuracy')
-  plt.savefig("figure.jpg")
+
+
+def save_plot(res):
+    plt.figure()
+    plt.plot(list(res.keys()), [obj["total_acc"] for obj in res.values()])
+    plt.xlabel('Training Size') 
+    plt.ylabel('Accuracy') 
+    plt.savefig('total_acc.jpg')
   
 
 def main():
@@ -167,7 +169,7 @@ def main():
   with open('res.json', 'w') as fp:
     json.dump(res, fp,  indent=4)
       
-  save_histogram(res)
+  save_plot(res)
 
 
 if __name__ == "__main__":
