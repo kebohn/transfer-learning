@@ -14,14 +14,15 @@ def dir_path(path):
   raise argparse.ArgumentTypeError(f"readable_dir: {path} is not a valid path")
 
 def create_csv(path):
-  with open("data.csv", "w") as csv_file:
+  with open(F"{path}data.csv", "w") as csv_file:
     writer = csv.writer(csv_file, delimiter=',')
     y_label = 0 # transform string labels into numbers
     for cat_dir in sorted(os.listdir(path)):
+      if not os.path.isdir(F'{path}{cat_dir}'):
+        continue
       cat_name = os.fsdecode(cat_dir)
       for file_name in sorted(os.listdir(F'{path}{cat_name}')):
-        print(file_name)
-        writer.writerow((file_name, y_label)) 
+        writer.writerow((F"{cat_dir}/{file_name}", y_label)) 
       y_label += 1
 
 
