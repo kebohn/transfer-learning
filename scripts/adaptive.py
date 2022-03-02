@@ -1,3 +1,4 @@
+from adaptiveModel import AdaptiveModel
 import torch
 from torchvision import models, transforms
 from imageDataset import CustomImageDataset
@@ -65,25 +66,27 @@ def save_plot(x, y, x_label, y_label, title):
 
 def define_model(data):
   # define network
-  model = models.resnet50(pretrained=True) # load pretrained model resnet-50
+  model = AdaptiveModel(data.get_categories()) # load pretrained model resnet-50
 
-  # Freeze model parameters
-  for param in model.parameters():
-    param.requires_grad = False
+  # Freeze all layers except the additional classifier layers
+  for name, param in model.named_parameters():
+    if name.split('.')[0] not in 'classifier':
+        param.requires_grad = False
 
   # add additional layer on top of pre-trained model which must be fine-tuned by small dataset
-  model.fc = torch.nn.Sequential(
-    torch.nn.Linear(2048, data.get_categories()) # output is number of classes in dataset
-    )
+  #model.fc = torch.nn.Sequential(
+  #  torch.nn.Linear(2048, 512), # output is number of classes in dataset
+  #  torch.nn.Linear(512, data.get_categories()) # output is number of classes in dataset
+  #  )
 
   return model.to(device) # save to GPU
 
 
-def train(model, epochs, lr, momentum, train_loader, test_loader, path):
+def train(model, epochs, lr, momentum, train_loader, valid_loader, path):
   loss = torch.nn.CrossEntropyLoss()
-  optimizer = optimizer = torch.optim.SGD(params=model.fc.parameters(), lr=lr, momentum=momentum)
-  test_loss = []
-  test_acc = []
+  optimizer = optimizer = torch.optim.SGD(params=model.parameters(), lr=lr, momentum=momentum)
+  valid_loss = []
+  valid_acc = []
   train_loss = []
   train_acc = []
   num_correct = 0
@@ -122,18 +125,18 @@ def train(model, epochs, lr, momentum, train_loader, test_loader, path):
     # compute training loss and accuracy and append to list
     train_loss.append(epoch_loss / len(train_loader))
     train_acc.append(num_correct / num_samples)
-    print(F'Train Loss: {train_loss[-1]:.2f}| Accuracy: {train_acc[-1]:.2f}')
+    print(F'Train Loss: {train_loss[-1]:.2f} | Accuracy: {train_acc[-1]:.2f}')
 
 
-    # test network
-    print("Testing Model with testing data...")
+    # validate network
+    print("Validate model...")
     epoch_loss = 0
     num_correct = 0
     num_samples = 0
     model.eval()
 
     with torch.no_grad():
-      for x, y in test_loader:
+      for x, y in valid_loader:
         x = x.to(device)
         y = y.to(device)
 
@@ -149,9 +152,9 @@ def train(model, epochs, lr, momentum, train_loader, test_loader, path):
         epoch_loss += current_loss.item()
         
     # compute test loss and accuracy and append to list
-    test_loss.append(epoch_loss / len(test_loader))
-    test_acc.append(num_correct / num_samples)
-    print(F'Test Loss: {test_loss[-1]:.2f} | Test Accuracy: {test_acc[-1]:.2f}')
+    valid_loss.append(epoch_loss / len(valid_loader))
+    valid_acc.append(num_correct / num_samples)
+    print(F'Validation Loss: {valid_loss[-1]:.2f} | Validation Accuracy: {valid_acc[-1]:.2f}')
 
   # save model
   path = path.rsplit('/', 2)
@@ -160,8 +163,8 @@ def train(model, epochs, lr, momentum, train_loader, test_loader, path):
   time_elapsed = time.time() - since
   print(F'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
 
-  loss_data = {'train': train_loss, 'test': test_loss}
-  acc_data = {'train': train_acc, 'test': test_acc}
+  loss_data = {'train': train_loss, 'validation': valid_loss}
+  acc_data = {'train': train_acc, 'validation': valid_acc}
 
   # write loss and accuracy to json
   with open('loss.json', 'w') as fp:
@@ -176,26 +179,58 @@ def train(model, epochs, lr, momentum, train_loader, test_loader, path):
   save_plot(x=list(numpy.arange(1, epochs + 1)), y=acc_data, x_label='epochs', y_label='accuracy', title='Accuracy')
 
 
+def test(model, test_loader):
+  print("Test model...")
+  num_correct = 0
+  num_samples = 0
+  model.eval()
+  with torch.no_grad():
+    for x, y in test_loader:
+      x = x.to(device)
+      y = y.to(device)
+
+      # forward pass
+      scores = model(x)
+
+      _, predictions = scores.max(1)
+      num_correct += predictions.eq(y).sum().item()
+      num_samples += predictions.size(0)
+        
+  acc = num_correct / num_samples
+  print(F'Test Accuracy: {acc:.2f}')
+    
+  # write accuracy to json
+  with open('test_acc.json', 'w') as fp:
+    json.dump(acc, fp,  indent=4)
+
+
 def main():
   parsed_args = parse_arguments()
 
   # load data
-  test_data = CustomImageDataset('data.csv', parsed_args.d_test, test_transforms())
-  test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=32, shuffle=True, num_workers=4)
   train_data = CustomImageDataset('data.csv', parsed_args.d, train_transforms())
-  train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=32, shuffle=True, num_workers=4)
+  test_data = CustomImageDataset('data.csv', parsed_args.d_test, test_transforms())
+ 
+  # Random split to generate validation data
+  train_data_size = int(len(train_data) * 0.8)
+  valid_data_size = len(train_data) - train_data_size
+  train_data, valid_data = torch.utils.data.random_split(train_data, [train_data_size, valid_data_size], generator=torch.Generator().manual_seed(42))
+
+  train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=32, shuffle=True, num_workers=8)
+  valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=32, shuffle=True, num_workers=8)
+  test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=64, shuffle=True, num_workers=8)
 
   # if specified saved model will be used otherwise a new model will be created
   if parsed_args.model is not None:
     model.load_state_dict(torch.load(parsed_args.model))
   else:
-    model = define_model(train_data)
+    model = define_model(test_data)
 
-  epochs = 50
-  lr = 0.05
+  epochs = 100
+  lr = 0.01
   momentum = 0.9
-  train(model, epochs, lr, momentum, train_loader, test_loader, parsed_args.d)
-
+  train(model, epochs, lr, momentum, train_loader, valid_loader, parsed_args.d)
+  test(model, test_loader)
 
 if __name__ == "__main__":
   main()
