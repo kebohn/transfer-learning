@@ -25,7 +25,23 @@ def dir_path(path):
   raise argparse.ArgumentTypeError(f"readable_dir: {path} is not a valid path")
 
 
-def define_img_transforms():
+def train_transforms():
+  return transforms.Compose([
+    transforms.Resize(224), # otherwise we would loose image information at the border
+    transforms.CenterCrop(224), # take only center from image
+    transforms.ColorJitter(),
+    transforms.RandomRotation(degrees=15),
+    transforms.RandomHorizontalFlip(),
+    transforms.RandomVerticalFlip(),
+    transforms.ToTensor(), # image to tensor
+    transforms.Normalize(
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
+    ),  # scale pixel values to range [-3,3]
+
+  ])
+
+def test_transforms():
   return transforms.Compose([
     transforms.Resize(224), # otherwise we would loose image information at the border
     transforms.CenterCrop(224), # take only center from image
@@ -63,7 +79,7 @@ def define_model(data):
   return model.to(device) # save to GPU
 
 
-def train(model, epochs, lr, momentum, train_loader, test_loader):
+def train(model, epochs, lr, momentum, train_loader, test_loader, path):
   loss = torch.nn.CrossEntropyLoss()
   optimizer = optimizer = torch.optim.SGD(params=model.fc.parameters(), lr=lr, momentum=momentum)
   test_loss = []
@@ -138,7 +154,8 @@ def train(model, epochs, lr, momentum, train_loader, test_loader):
     print(F'Test Loss: {test_loss[-1]:.2f} | Test Accuracy: {test_acc[-1]:.2f}')
 
   # save model
-  torch.save(model.state_dict(), F'/local/scratch/bohn/datasets/indoorCVPR_09/model_weights_lr_{lr}_epochs_{epochs}.pth')
+  path = path.rsplit('/', 2)
+  torch.save(model.state_dict(), F'{path[0]}/model_lr_{lr}_epochs_{epochs}.pth')
     
   time_elapsed = time.time() - since
   print(F'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
@@ -161,12 +178,11 @@ def train(model, epochs, lr, momentum, train_loader, test_loader):
 
 def main():
   parsed_args = parse_arguments()
-  transform = define_img_transforms()
 
   # load data
-  test_data = CustomImageDataset('data.csv', parsed_args.d_test, transform)
+  test_data = CustomImageDataset('data.csv', parsed_args.d_test, test_transforms())
   test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=32, shuffle=True, num_workers=4)
-  train_data = CustomImageDataset('data.csv', parsed_args.d, transform)
+  train_data = CustomImageDataset('data.csv', parsed_args.d, train_transforms())
   train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=32, shuffle=True, num_workers=4)
 
   # if specified saved model will be used otherwise a new model will be created
@@ -175,10 +191,10 @@ def main():
   else:
     model = define_model(train_data)
 
-  epochs = 25
-  lr = 0.1
+  epochs = 50
+  lr = 0.05
   momentum = 0.9
-  train(model, epochs, lr, momentum, train_loader, test_loader)
+  train(model, epochs, lr, momentum, train_loader, test_loader, parsed_args.d)
 
 
 if __name__ == "__main__":
