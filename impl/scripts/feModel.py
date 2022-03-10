@@ -5,29 +5,16 @@ import numpy
 import argparse, PIL
 
 
-class DLModel(BaseModel):
-  def __init__(self, device):
+class FEModel(BaseModel):
+  def __init__(self, model, transforms, device):
     super().__init__(device)
-    self.model = torchvision.models.resnet50(pretrained=True) # load pretrained model resnet-50
-    modules = list(self.model.children())[:-1] # remove fully connected layer
+    self.model = model
+    modules = list(self.model.children())[:-1] # remove last fully connected layer
     self.model = torch.nn.Sequential(*modules)
     self.model.eval() # evaluation mode
     self.model.to(device) # save on GPU
-    self.transforms = self.__define_img_transforms()
-    
-    
-  def __define_img_transforms(self):
-    return torchvision.transforms.Compose([
-      torchvision.transforms.Resize(224), # otherwise we would loose image information at the border
-      torchvision.transforms.CenterCrop(224), # take only center from image
-      torchvision.transforms.ToTensor(), # image to tensor
-      torchvision.transforms.Normalize(
-          mean=[0.485, 0.456, 0.406],
-          std=[0.229, 0.224, 0.225]
-      ),  # scale pixel values to range [-3,3]
-      lambda x : x.unsqueeze(0) # required by pytorch (add batch dimension)
-    ])
-    
+    self.transforms = transforms
+
     
   def extract(self, path):
     with torch.no_grad(): # no training
