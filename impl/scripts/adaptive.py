@@ -10,10 +10,8 @@ import matplotlib.pyplot as plt
 import time
 import numpy
 import argparse
-import os
-import json
 import utilities
-
+from scripts.feModel import FEModel
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -37,7 +35,7 @@ def parse_arguments():
 
 def train_transforms():
   return torchvision.transforms.Compose([
-    torchvision.transforms.RandomResizedCrop(size=(224, 224)),
+    torchvision.transforms.RandomResizedCrop(224, scale=(0.08, 1.0), ratio=(0.75, 1.3333333333333333)),
     torchvision.transforms.ColorJitter(),
     torchvision.transforms.RandomHorizontalFlip(p=0.5),
     torchvision.transforms.ToTensor(), # image to tensor
@@ -76,6 +74,7 @@ def define_model(data):
 
   # Freeze all layers except the additional classifier layers
   for name, param in model.named_parameters():
+    # fine-tune the adapter network and also the last layer of resnet
     if name.split('.')[0] not in 'classifier':
         param.requires_grad = False
 
@@ -92,9 +91,15 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path):
   num_correct = 0
   num_samples = 0
 
+  # early stopping: when the validation error in the last 10 epochs does not change we quit training
+  es_counter = 0 
+  es_threshold = 10
+
   # train network
   print("Learning Model...")
   since = time.time()
+  # learning rate decay 1/10 when a plateau is reached
+  scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', patience=5, verbose=True, min_lr=1e-6)
   for epoch in range(epochs):
 
     print(F'\nEpoch {epoch + 1}/{epochs}:')
@@ -155,6 +160,20 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path):
     valid_loss.append(epoch_loss / len(valid_loader))
     valid_acc.append(num_correct / num_samples)
     print(F'Validation Loss: {valid_loss[-1]:.2f} | Validation Accuracy: {valid_acc[-1]:.2f}')
+  
+    # early stopping
+    if len(valid_loss) >= 2:
+      if abs(valid_loss[-2] - current_loss) <= 1e-8 or current_loss > valid_loss[-2]:
+        es_counter += 1
+      else:
+        es_counter = 0 # reset
+
+      if es_counter == es_threshold:
+        print("Model starts to overfit, training stopped")
+        break
+
+    # rate decay when validation loss is not changing (currently not used)
+    #scheduler.step(epoch_loss / len(valid_loader))
 
   # save model
   path = path.rsplit('/', 2)
@@ -167,16 +186,13 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path):
   acc_data = {'train': train_acc, 'validation': valid_acc}
 
   # write loss and accuracy to json
-  with open('loss.json', 'w') as fp:
-    json.dump(loss_data, fp,  indent=4)
-
-  with open('acc.json', 'w') as fp:
-    json.dump(acc_data, fp,  indent=4)
+  utilities.save_json_file('loss', loss_data)
+  utilities.save_json_file('acc', acc_data)
 
   # save loss
-  save_plot(x=list(numpy.arange(1, epochs + 1)), y=loss_data, x_label='epochs', y_label='loss', title='Loss')
+  save_plot(x=list(numpy.arange(1, epoch + 2)), y=loss_data, x_label='epochs', y_label='loss', title='Loss')
   # save accuracy
-  save_plot(x=list(numpy.arange(1, epochs + 1)), y=acc_data, x_label='epochs', y_label='accuracy', title='Accuracy')
+  save_plot(x=list(numpy.arange(1, epoch + 2)), y=acc_data, x_label='epochs', y_label='accuracy', title='Accuracy')
 
 
 def test(model, test_loader):
@@ -199,9 +215,7 @@ def test(model, test_loader):
   acc = num_correct / num_samples
   print(F'Test Accuracy: {acc:.2f}')
     
-  # write accuracy to json
-  with open('test_acc.json', 'w') as fp:
-    json.dump(acc, fp,  indent=4)
+  utilities.save_json_file('test_acc', acc)
 
 
 def main():
@@ -212,9 +226,9 @@ def main():
   valid_data = CustomImageDataset('validation.csv', parsed_args.d, test_transforms())
   test_data = CustomImageDataset('data.csv', parsed_args.d_test, test_transforms())
  
-  train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=32, shuffle=True, num_workers=8)
-  valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=32, shuffle=True, num_workers=8)
-  test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=64, shuffle=True, num_workers=8)
+  train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=128, shuffle=True, num_workers=8)
+  valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=128, shuffle=True, num_workers=8)
+  test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=128, shuffle=False, num_workers=8)
 
   # if specified saved model will be used otherwise a new model will be created
   if parsed_args.model is not None:
@@ -222,18 +236,29 @@ def main():
   else:
     model = define_model(test_data)
     epochs = 100
-    lr = 0.01
-    momentum = 0.9
+    lr = 0.0128
+    momentum = 0.875
     train(model, epochs, lr, momentum, train_loader, valid_loader, parsed_args.d)  
 
   # extract features from model and use this with another specified metric to predict the categories
   if parsed_args.extract:
     if parsed_args.features is not None: # load features from provided dir
       features = torch.load(parsed_args.features)
+    else:
+      # use Feature Extraction Model
+      res = {}
+      features_model = FEModel(model=model, transforms=utilities.img_transforms(), device=device)
+      features = utilities.extract_features(features_model, parsed_args.d_test)
+      torch.save(features, 'features.pt')
+      for features_filtered, n in model.step_iter(features, parsed_args.step):
+        res[n] = utilities.predict(
+            model=model,
+            params=parsed_args,
+            features=features_filtered
+          )
 
-    # define extract features model
-    features = utilities.extract_features(model, parsed_args.d)
-    torch.save(features, 'features.pt')
+        utilities.save_json_file('res', res)
+        utilities.save_plot(res)
 
 
   # use the model to classify the images  
