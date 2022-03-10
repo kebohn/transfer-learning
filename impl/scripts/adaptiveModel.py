@@ -8,11 +8,12 @@ class AdaptiveModel(torch.nn.Module):
 		self.model.fc = None # old classifier for pretrained imagenet, we don't use this here
 		
 		self.classifier = torch.nn.Sequential(
+				torch.nn.BatchNorm1d(2048),
 				torch.nn.Linear(2048, 512),
-				torch.nn.BatchNorm1d(512),
-				torch.nn.Dropout(0.2),
+				torch.nn.Tanh(),
 				torch.nn.Linear(512, 256),
-				torch.nn.Linear(256, num_categories)
+				torch.nn.Tanh(),
+				torch.nn.Linear(256, num_categories),
 		)
 			
 	def forward(self, x):

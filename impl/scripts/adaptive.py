@@ -1,6 +1,10 @@
+#!/usr/bin/env python3
+import sys
+sys.path.append("..") # append the path of the parent directory
+
 from adaptiveModel import AdaptiveModel
 import torch
-from torchvision import models, transforms
+import torchvision
 from imageDataset import CustomImageDataset
 import matplotlib.pyplot as plt
 import time
@@ -8,34 +12,36 @@ import numpy
 import argparse
 import os
 import json
+import utilities
+
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 def parse_arguments():
   parser = argparse.ArgumentParser(description='Baseline script for transfer learning')
-  parser.add_argument('--d', type=dir_path, help='Directory where files are stored (absolute dir)')
-  parser.add_argument('--d_test', type=dir_path, help='Directory where test files are stored (absolute dir)')
-  parser.add_argument('--model', type=dir_path, help='Directory where model is stored (absolute dir)')
+  parser.add_argument('--d', type=utilities.dir_path, help='Directory where files are stored (absolute dir)')
+  parser.add_argument('--d_test', type=utilities.dir_path, help='Directory where test files are stored (absolute dir)')
+  parser.add_argument('--model', type=utilities.dir_path, help='Directory where model is stored (absolute dir)')
+  parser.add_argument('--features', type=utilities.dir_path, help='Directory where feautures are stored (absolute dir)')
+  parser.add_argument('--extract', dest='extract', action='store_true', help='Extract features and store it')
+  parser.add_argument('--cosine', dest='cosine', action='store_true', help='Apply cosine distance metric')
+  parser.add_argument('--mean', dest='mean', action='store_true', help='Apply cosine distance on mean feature')
+  parser.add_argument('--neighbor', dest='neighbor', action='store_true', help='Apply kNN metric')
+  parser.add_argument('--svm', dest='svm', action='store_true', help='Apply Support Vector Machine')
+  parser.add_argument('--k', type=int, dest='k', default=5, help='Define k for kNN algorithm (Default: k=5)')
+  parser.add_argument('--step', type=int, dest='step', default=5, help='Define step with which training set should be decreased (Default: k=5)')
+  parser.add_argument('--unbalanced', dest='unbalanced', action='store_true', help='Define if dataset is unbalanced (Default: false)')
   return parser.parse_args()
 
 
-def dir_path(path):
-  if os.path.isabs(path):
-    return path
-  raise argparse.ArgumentTypeError(f"readable_dir: {path} is not a valid path")
-
-
 def train_transforms():
-  return transforms.Compose([
-    transforms.Resize(224), # otherwise we would loose image information at the border
-    transforms.CenterCrop(224), # take only center from image
-    transforms.ColorJitter(),
-    transforms.RandomRotation(degrees=15),
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomVerticalFlip(),
-    transforms.ToTensor(), # image to tensor
-    transforms.Normalize(
+  return torchvision.transforms.Compose([
+    torchvision.transforms.RandomResizedCrop(size=(224, 224)),
+    torchvision.transforms.ColorJitter(),
+    torchvision.transforms.RandomHorizontalFlip(p=0.5),
+    torchvision.transforms.ToTensor(), # image to tensor
+    torchvision.transforms.Normalize(
         mean=[0.485, 0.456, 0.406],
         std=[0.229, 0.224, 0.225]
     ),  # scale pixel values to range [-3,3]
@@ -43,11 +49,11 @@ def train_transforms():
   ])
 
 def test_transforms():
-  return transforms.Compose([
-    transforms.Resize(224), # otherwise we would loose image information at the border
-    transforms.CenterCrop(224), # take only center from image
-    transforms.ToTensor(), # image to tensor
-    transforms.Normalize(
+  return torchvision.transforms.Compose([
+    torchvision.transforms.Resize(224), # otherwise we would loose image information at the border
+    torchvision.transforms.CenterCrop(224), # take only center from image
+    torchvision.transforms.ToTensor(), # image to tensor
+    torchvision.transforms.Normalize(
         mean=[0.485, 0.456, 0.406],
         std=[0.229, 0.224, 0.225]
     ),  # scale pixel values to range [-3,3]
@@ -72,12 +78,6 @@ def define_model(data):
   for name, param in model.named_parameters():
     if name.split('.')[0] not in 'classifier':
         param.requires_grad = False
-
-  # add additional layer on top of pre-trained model which must be fine-tuned by small dataset
-  #model.fc = torch.nn.Sequential(
-  #  torch.nn.Linear(2048, 512), # output is number of classes in dataset
-  #  torch.nn.Linear(512, data.get_categories()) # output is number of classes in dataset
-  #  )
 
   return model.to(device) # save to GPU
 
@@ -209,13 +209,9 @@ def main():
 
   # load data
   train_data = CustomImageDataset('data.csv', parsed_args.d, train_transforms())
+  valid_data = CustomImageDataset('validation.csv', parsed_args.d, test_transforms())
   test_data = CustomImageDataset('data.csv', parsed_args.d_test, test_transforms())
  
-  # Random split to generate validation data
-  train_data_size = int(len(train_data) * 0.8)
-  valid_data_size = len(train_data) - train_data_size
-  train_data, valid_data = torch.utils.data.random_split(train_data, [train_data_size, valid_data_size], generator=torch.Generator().manual_seed(42))
-
   train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=32, shuffle=True, num_workers=8)
   valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=32, shuffle=True, num_workers=8)
   test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=64, shuffle=True, num_workers=8)
@@ -225,12 +221,24 @@ def main():
     model.load_state_dict(torch.load(parsed_args.model))
   else:
     model = define_model(test_data)
+    epochs = 100
+    lr = 0.01
+    momentum = 0.9
+    train(model, epochs, lr, momentum, train_loader, valid_loader, parsed_args.d)  
 
-  epochs = 100
-  lr = 0.01
-  momentum = 0.9
-  train(model, epochs, lr, momentum, train_loader, valid_loader, parsed_args.d)
-  test(model, test_loader)
+  # extract features from model and use this with another specified metric to predict the categories
+  if parsed_args.extract:
+    if parsed_args.features is not None: # load features from provided dir
+      features = torch.load(parsed_args.features)
+
+    # define extract features model
+    features = utilities.extract_features(model, parsed_args.d)
+    torch.save(features, 'features.pt')
+
+
+  # use the model to classify the images  
+  else:
+    test(model, test_loader)
 
 if __name__ == "__main__":
   main()
