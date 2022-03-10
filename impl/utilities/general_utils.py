@@ -1,5 +1,6 @@
 import os
 import argparse
+import json
 
 
 def dir_path(path):
@@ -13,3 +14,7 @@ def file_iterable(path):
     cat_name = os.fsdecode(cat_dir)
     for file_name in sorted(os.listdir(F'{path}{cat_name}')):
       yield (cat_name, file_name)
+
+def save_json_file(name, content):
+  with open(F"{name}.json", 'w') as fp:
+        json.dump(content, fp,  indent=4)
