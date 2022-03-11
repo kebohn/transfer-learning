@@ -21,7 +21,7 @@ def parse_arguments():
   parser.add_argument('--d', type=utilities.dir_path, help='Directory where files are stored (absolute dir)')
   parser.add_argument('--d_test', type=utilities.dir_path, help='Directory where test files are stored (absolute dir)')
   parser.add_argument('--model', type=utilities.dir_path, help='Directory where model is stored (absolute dir)')
-  parser.add_argument('--features', type=utilities.dir_path, help='Directory where feautures are stored (absolute dir)')
+  parser.add_argument('--features', type=utilities.dir_path, help='Directory where features are stored (absolute dir)')
   parser.add_argument('--extract', dest='extract', action='store_true', help='Extract features and store it')
   parser.add_argument('--cosine', dest='cosine', action='store_true', help='Apply cosine distance metric')
   parser.add_argument('--mean', dest='mean', action='store_true', help='Apply cosine distance on mean feature')
@@ -30,6 +30,7 @@ def parse_arguments():
   parser.add_argument('--k', type=int, dest='k', default=5, help='Define k for kNN algorithm (Default: k=5)')
   parser.add_argument('--step', type=int, dest='step', default=5, help='Define step with which training set should be decreased (Default: k=5)')
   parser.add_argument('--unbalanced', dest='unbalanced', action='store_true', help='Define if dataset is unbalanced (Default: false)')
+  parser.add_argument('--early-stop', dest='early_stop', action='store_true', help='Define if training should be stopped when plateau is reached (Default: false)')
   return parser.parse_args()
 
 
@@ -70,7 +71,8 @@ def save_plot(x, y, x_label, y_label, title):
 
 def define_model(data):
   # define network
-  model = AdaptiveModel(data.get_categories()) # load pretrained model resnet-50
+  base_model = torchvision.models.resnet50(pretrained=True) # load pretrained model resnet-50
+  model = AdaptiveModel(model=base_model, num_categories=data.get_categories())
 
   # Freeze all layers except the additional classifier layers
   for name, param in model.named_parameters():
@@ -81,7 +83,7 @@ def define_model(data):
   return model.to(device) # save to GPU
 
 
-def train(model, epochs, lr, momentum, train_loader, valid_loader, path):
+def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_stop):
   loss = torch.nn.CrossEntropyLoss()
   optimizer = optimizer = torch.optim.SGD(params=model.parameters(), lr=lr, momentum=momentum)
   valid_loss = []
@@ -157,16 +159,15 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path):
         epoch_loss += current_loss.item()
         
     # compute test loss and accuracy and append to list
-    valid_loss.append(epoch_loss / len(valid_loader))
+    current_valid_loss = epoch_loss / len(valid_loader)
+    valid_loss.append(current_valid_loss)
     valid_acc.append(num_correct / num_samples)
     print(F'Validation Loss: {valid_loss[-1]:.2f} | Validation Accuracy: {valid_acc[-1]:.2f}')
   
     # early stopping
-    if len(valid_loss) >= 2:
-      if abs(valid_loss[-2] - current_loss) <= 1e-8 or current_loss > valid_loss[-2]:
+    if len(valid_loss) >= 2 and early_stop:
+      if abs(valid_loss[-2] - current_loss) <= 1e-3 or current_valid_loss > valid_loss[-2]:
         es_counter += 1
-      else:
-        es_counter = 0 # reset
 
       if es_counter == es_threshold:
         print("Model starts to overfit, training stopped")
@@ -177,7 +178,7 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path):
 
   # save model
   path = path.rsplit('/', 2)
-  torch.save(model.state_dict(), F'{path[0]}/model_lr_{lr}_epochs_{epochs}.pth')
+  torch.save(model.state_dict(), F'{path[0]}/model_lr_{lr}_epochs_{epoch + 1}.pth')
     
   time_elapsed = time.time() - since
   print(F'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
@@ -226,9 +227,9 @@ def main():
   valid_data = CustomImageDataset('validation.csv', parsed_args.d, test_transforms())
   test_data = CustomImageDataset('data.csv', parsed_args.d_test, test_transforms())
  
-  train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=128, shuffle=True, num_workers=8)
-  valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=128, shuffle=True, num_workers=8)
-  test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=128, shuffle=False, num_workers=8)
+  train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=32, shuffle=True, num_workers=8)
+  valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=32, shuffle=True, num_workers=8)
+  test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=64, shuffle=False, num_workers=8)
 
   # if specified saved model will be used otherwise a new model will be created
   if parsed_args.model is not None:
@@ -236,9 +237,9 @@ def main():
   else:
     model = define_model(test_data)
     epochs = 100
-    lr = 0.0128
-    momentum = 0.875
-    train(model, epochs, lr, momentum, train_loader, valid_loader, parsed_args.d)  
+    lr = 0.01
+    momentum = 0.9
+    train(model, epochs, lr, momentum, train_loader, valid_loader, parsed_args.d, parsed_args.early_stop)  
 
   # extract features from model and use this with another specified metric to predict the categories
   if parsed_args.extract:
