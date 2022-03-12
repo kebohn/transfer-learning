@@ -31,6 +31,8 @@ def parse_arguments():
   parser.add_argument('--step', type=int, dest='step', default=5, help='Define step with which training set should be decreased (Default: k=5)')
   parser.add_argument('--unbalanced', dest='unbalanced', action='store_true', help='Define if dataset is unbalanced (Default: false)')
   parser.add_argument('--early-stop', dest='early_stop', action='store_true', help='Define if training should be stopped when plateau is reached (Default: false)')
+  parser.add_argument('--fine-tune', dest='fine_tune', action='store_true', help='Define if the whole model should be fine-tuned (Default: false)')
+  parser.add_argument('--vis', type=utilities.dir_path, help='Directory where images are stored that will be used for the visualization of the feature maps (absolute dir)')
   return parser.parse_args()
 
 
@@ -69,16 +71,18 @@ def save_plot(x, y, x_label, y_label, title):
   plt.savefig(F'{title}.jpg')
 
 
-def define_model(data):
+def define_model(data, fine_tune, vis):
   # define network
   base_model = torchvision.models.resnet50(pretrained=True) # load pretrained model resnet-50
-  model = AdaptiveModel(model=base_model, num_categories=data.get_categories())
+  model = AdaptiveModel(model=base_model, num_categories=data.get_categories(), shallow=not fine_tune, vis=vis)
 
-  # Freeze all layers except the additional classifier layers
-  for name, param in model.named_parameters():
-    # fine-tune the adapter network and also the last layer of resnet
-    if name.split('.')[0] not in 'classifier':
-        param.requires_grad = False
+  # if fine_tune is true the whole model will be trained again
+  if not fine_tune:
+    # Freeze all layers except the additional classifier layers
+    for name, param in model.named_parameters():
+      # train the adapter network
+      if name.split('.')[0] not in 'classifier':
+          param.requires_grad = False
 
   return model.to(device) # save to GPU
 
@@ -133,7 +137,6 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
     train_loss.append(epoch_loss / len(train_loader))
     train_acc.append(num_correct / num_samples)
     print(F'Train Loss: {train_loss[-1]:.2f} | Accuracy: {train_acc[-1]:.2f}')
-
 
     # validate network
     print("Validate model...")
@@ -219,6 +222,17 @@ def test(model, test_loader):
   utilities.save_json_file('test_acc', acc)
 
 
+def visualize_filters(layers):
+  for i, l in enumerate(layers):
+    w = l.weight
+    plt.figure(figsize=(20, 17))
+    for j, filter in enumerate(w):
+      plt.subplot(w.shape[-2] + 1, w.shape[-1] + 1, j+1) # use shape of filter to define subplot
+      plt.imshow(filter[0, :, :].detach(), cmap='viridis') 
+      plt.axis('off')
+      plt.savefig(F'Conv_{i}_Filter.png')
+
+
 def main():
   parsed_args = parse_arguments()
 
@@ -235,11 +249,16 @@ def main():
   if parsed_args.model is not None:
     model.load_state_dict(torch.load(parsed_args.model))
   else:
-    model = define_model(test_data)
+    model = define_model(test_data, parsed_args.fine_tune, parsed_args.vis)
     epochs = 100
-    lr = 0.01
+    lr = 0.0005
     momentum = 0.9
-    train(model, epochs, lr, momentum, train_loader, valid_loader, parsed_args.d, parsed_args.early_stop)  
+    train(model, epochs, lr, momentum, train_loader, valid_loader, parsed_args.d, parsed_args.early_stop)
+
+  # visualize convolutional layers with input images
+  if parsed_args.vis is not None:
+    layers = model.get_conv_layers()
+    visualize_filters(layers)
 
   # extract features from model and use this with another specified metric to predict the categories
   if parsed_args.extract:
