@@ -11,9 +11,9 @@ def dir_path(path):
 
 def file_iterable(path):
   for cat_dir in sorted(os.listdir(path)):
-    if os.path.isfile(cat_dir): # only consider directories
-      continue
     cat_name = os.fsdecode(cat_dir)
+    if os.path.isfile(F'{path}{cat_name}'): # only consider directories
+      continue
     for file_name in sorted(os.listdir(F'{path}{cat_name}')):
       yield (cat_name, file_name)
 
