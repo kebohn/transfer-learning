@@ -3,8 +3,10 @@ import pandas as pd
 from torch.utils.data import Dataset
 
 class CustomImageDataset(Dataset):
-  def __init__(self, annotations_file, img_dir, transform=None):
+  def __init__(self, annotations_file, img_dir, transform=None, samples=0):
     self.img_labels = pd.read_csv(F"{img_dir}{annotations_file}")
+    if samples > 0:
+      self.img_labels = self.img_labels.groupby('category').head(samples) # extract specified amount of samples per category
     self.img_dir = img_dir
     self.transform = transform
 

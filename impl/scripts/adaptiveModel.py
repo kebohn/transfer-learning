@@ -2,14 +2,11 @@
 import torch
 
 class AdaptiveModel(torch.nn.Module):
-	def __init__(self, model, num_categories, shallow, vis):
+	def __init__(self, model, num_categories, shallow):
 		super(AdaptiveModel, self).__init__()
 		self.model = model # use input model as base model
 		modules = list(self.model.children())[:-1] # remove last fully connected layer
 		self.model = torch.nn.Sequential(*modules)
-
-		if vis is not None:
-			self.__extractConvLayers(modules)
 
 		# add shallow network on top of pre-trained base model
 		if shallow: 
@@ -40,24 +37,3 @@ class AdaptiveModel(torch.nn.Module):
 		x = self.classifier(x)
 		return x
 
-
-	def __extractConvLayers(self, modules):
-		self.layers = []
-		for m in modules:
-			if type(m) == torch.nn.Conv2d:
-				self.layers.append(m)
-			elif type(m) == torch.nn.Sequential:
-				for i in m.children:
-					if type(m) == torch.nn.Conv2d:
-						self.layers.append(m)
-
-
-	def get_feature_maps(self, input):
-		res = [self.layers[0](input)] # first output
-		# consequently use the previous output as input for the next layer
-		for l in range(1, len(self.layers)):
-			res.append(self.layers[l](res[-1]))
-		return res
-
-	def get_conv_layers(self):
-		return self.layers

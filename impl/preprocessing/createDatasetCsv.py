@@ -18,6 +18,8 @@ def create_csv(path, v_size):
   with open(F"{path}data.csv", "w") as train_f, open(F"{path}validation.csv", "w") as valid_f:
     train_writer = csv.writer(train_f, delimiter=',')
     valid_writer = csv.writer(valid_f, delimiter=',')
+    train_writer.writerow(["file", "category"])
+    valid_writer.writerow(["file", "category"])
     y_label = 0 # transform string labels into numbers
     for cat_dir in sorted(os.listdir(path)):
       if not os.path.isdir(F'{path}{cat_dir}'):
