@@ -20,9 +20,10 @@ class CustomImageDataset(Dataset):
     img_path = os.path.join(self.img_dir, self.img_labels.iloc[idx, 0])
     image = PIL.Image.open(img_path, 'r').convert('RGB') # open image skip transparency channel
     label = self.img_labels.iloc[idx, 1]
+    name = self.img_labels.iloc[idx, 2]
     if self.transform:
         image = self.transform(image)
-    return image, label
+    return image, label, name
 
   
   def get_categories(self):
