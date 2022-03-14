@@ -5,10 +5,9 @@ sys.path.append("..") # append the path of the parent directory
 import torch
 import torchvision
 import argparse, json
-from feModel import FEModel
+from imageDataset import CustomImageDataset
+import models
 import utilities
-
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 def parse_arguments():
@@ -22,6 +21,7 @@ def parse_arguments():
   parser.add_argument('--svm', dest='svm', action='store_true', help='Apply Support Vector Machine')
   parser.add_argument('--k', type=int, dest='k', default=5, help='Define k for kNN algorithm (Default: k=5)')
   parser.add_argument('--step', type=int, dest='step', default=5, help='Define step with which training set should be decreased (Default: k=5)')
+  parser.add_argument('--max-size', type=int, dest='max_size', default=5, help='Define maximum samples per class (Default: k=5)')
   parser.add_argument('--unbalanced', dest='unbalanced', action='store_true', help='Define if dataset is unbalanced (Default: false)')
   return parser.parse_args()
 
@@ -31,24 +31,43 @@ def main():
       
   # use Feature Extraction Model
   res50_model = torchvision.models.resnet50(pretrained=True) # load pretrained model resnet-50
-  model = FEModel(model=res50_model, transforms=utilities.img_transforms(), device=device)
-  if parsed_args.extract:
-    features = utilities.extract_features(model, parsed_args.d)
-    torch.save(features, 'features.pt')
-  else:
-    features = torch.load('features.pt')
-  for features_filtered, n in model.step_iter(features, parsed_args.step):
-    res[n] = utilities.predict(
+  model = models.FEModel(model=res50_model, device=utilities.get_device())
+
+  # define current training size per category
+  current_size = parsed_args.step
+
+  # load test data
+  test_data = CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
+  test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=1, shuffle=False) 
+
+  # increase current size per category by step_size after every loop
+  while(current_size <= parsed_args.max_size):
+
+    if parsed_args.extract:
+
+      # load data
+      train_data = CustomImageDataset('data.csv', parsed_args.d, utilities.train_transforms(), current_size)
+      train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=1, shuffle=False)
+
+      # extract features from training data
+      features = utilities.extract(model, train_loader)
+      torch.save(features, F'features_size_{current_size}.pt')
+    else:
+      features = torch.load(F'features_size_{current_size}.pt')
+  
+    res[current_size] = utilities.predict(
         model=model,
         params=parsed_args,
-        features=features_filtered
+        features=features,
+        test_loader=test_loader
       )
+    current_size += parsed_args.step
    
   # write result to a file
   with open('res.json', 'w') as fp:
     json.dump(res, fp,  indent=4)
       
-  utilities.save_plot(res)
+  utilities.save_training_size_plot(res)
 
 
 if __name__ == "__main__":

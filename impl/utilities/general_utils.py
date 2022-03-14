@@ -17,6 +17,8 @@ def file_iterable(path):
     for file_name in sorted(os.listdir(F'{path}{cat_name}')):
       yield (cat_name, file_name)
 
+
 def save_json_file(name, content):
   with open(F"{name}.json", 'w') as fp:
         json.dump(content, fp,  indent=4)
+

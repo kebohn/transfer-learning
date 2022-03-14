@@ -1,12 +1,11 @@
-from baseModel import BaseModel
 import torch
-import torchvision
 import numpy
-import argparse, PIL
+import argparse
+import models
 
 
-class FEModel(BaseModel):
-  def __init__(self, model, transforms, device, adaptive=False):
+class FEModel(models.BaseModel):
+  def __init__(self, model, device, adaptive=False):
     super().__init__(device)
     self.model = model
     # remove classification layer from adaptive network
@@ -18,19 +17,9 @@ class FEModel(BaseModel):
       self.model = torch.nn.Sequential(*modules)
     self.model.eval() # evaluation mode
     self.model.to(device) # save on GPU
-    self.transforms = transforms
-
-  
-  def extract(self, path):
-    with torch.no_grad(): # no training
-        image = PIL.Image.open(path, 'r').convert('RGB') # open image skip transparency channel
-        tensor = self.transforms(image)
-        tensor = tensor.to(self.device) # save on GPU
-        feature = self.model(tensor) # get model output
-        return torch.flatten(feature).cpu()
 
 
-  def extract_from_loader(self, img):
+  def extract(self, img):
     with torch.no_grad(): # no training
         img = img.to(self.device) # save on GPU
         feature = self.model(img) # get model output
