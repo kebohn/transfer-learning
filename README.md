@@ -25,7 +25,7 @@ The following approaches are implemented in `adaptive.py`:
 #### Fine-Tuning
   1. The pre-trained network is fine-tuned on the training set of the small dataset, and finally used as a predictor for the test dataset.
   2. Feature Extraction of the pre-trained network and used for a shallow learning algo (e.g. svm)
-##### Adaptive Network
+#### Adaptive Network
   1. The parameters in the trained network will be frozen and a adapter network will be trained with the small dataset.
   2. Feature Extraction of the adapter network and used for a shallow learning algo (e.g. svm) 
 
