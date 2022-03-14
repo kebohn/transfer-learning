@@ -198,8 +198,6 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
   # save accuracy
   save_plot(x=list(numpy.arange(1, epoch + 2)), y=acc_data, x_label='epochs', y_label='accuracy', title='Accuracy')
 
-  return model
-
 
 def test(model, test_loader):
   print("Test model...")
@@ -234,52 +232,61 @@ def main():
   valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=32, shuffle=True, num_workers=8)
   test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=64, shuffle=False, num_workers=8)
 
-  # if specified saved model will be used otherwise a new model will be created
-  if parsed_args.model is not None:
-    model.load_state_dict(torch.load(parsed_args.model))
-  else:
+  # hyperparameters
+  epochs = 100
+  lr = 0.001
+  momentum = 0.9
+  current_size = parsed_args.step
+  res = {}
+
+  # increase current size per category by step_size after every loop
+  while(current_size <= parsed_args.max_size):
+    print(F'Using {current_size} images per category')
+
+    # load data
+    train_data = CustomImageDataset('data.csv', parsed_args.d, train_transforms(), current_size)
+
     model = define_model(test_data, parsed_args.fine_tune)
-    epochs = 100
-    lr = 0.001
-    momentum = 0.9
-    current_size = parsed_args.step
-    res = {}
 
-    # increase current size per category by step_size after every loop
-    while(current_size <= parsed_args.max_size):
-      counter = (current_size / parsed_args.step) - 1
-
-      # load data
-      train_data = CustomImageDataset('data.csv', parsed_args.d, train_transforms(), current_size)
+    # if specified saved model will be used otherwise a new model will be created
+    if parsed_args.model is not None:
+      model.load_state_dict(torch.load(parsed_args.model))
+    else: 
+      # new training loader for adaptive network
       train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=32, shuffle=True, num_workers=8)
 
       # train data with current size of samples per category
-      trained_model = train(model, epochs, lr, momentum, train_loader, valid_loader, parsed_args.d, parsed_args.early_stop)
+      train(model, epochs, lr, momentum, train_loader, valid_loader, parsed_args.d, parsed_args.early_stop)
 
-      # extract features from model and use this with another specified metric to predict the categories
-      if parsed_args.extract:
-        if parsed_args.features is not None: # load features from provided dir
-          features = torch.load(parsed_args.features)
-        else:
-          # use Feature Extraction Model
-          features_model = FEModel(model=trained_model, transforms=utilities.img_transforms(), device=device)
-          features = utilities.extract_features(features_model, parsed_args.d_test)
-          torch.save(features, F'{counter}_features.pt')
-
-          res[counter] = utilities.predict(
-              model=features_model,
-              params=parsed_args,
-              features=features
-            )
-
-      # use the model to classify the images  
+    # extract features from model and use this with another specified metric to predict the categories
+    if parsed_args.extract:
+      if parsed_args.features is not None: # load features from provided dir
+        features = torch.load(parsed_args.features)
       else:
-        test(model, test_loader)
+        # use Feature Extraction Model
+        features_model = FEModel(model=model, transforms=utilities.img_transforms(), device=device, adaptive=True)
 
-      current_size += parsed_args.step
+        # new loader without shuffling and no batches
+        train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=1, shuffle=False) 
 
-    utilities.save_json_file('res', res)
-    utilities.save_plot(res)
+        features = utilities.extract_features_with_data_loader(features_model, train_loader)
+        print(features)
+        torch.save(features, F'{current_size}_features.pt')
+
+        res[current_size] = utilities.predict(
+            model=features_model,
+            params=parsed_args,
+            features=features
+          )
+
+    # use the model to classify the images  
+    else:
+      test(model, test_loader)
+
+    current_size += parsed_args.step
+
+  utilities.save_json_file('res', res)
+  utilities.save_plot(res)
 
 if __name__ == "__main__":
   main()

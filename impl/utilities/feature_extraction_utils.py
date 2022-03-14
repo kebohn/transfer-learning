@@ -23,6 +23,21 @@ def extract_features(model, path):
   return features
 
 
+def extract_features_with_data_loader(model, train_loader):
+  print("Extract features from...")
+  category = ""
+  features = {}
+  for data, targets in train_loader: # iterate over training data
+    feature = model.extract_from_loader(data)
+    if category == targets[0]:
+      features[targets[0]] = torch.cat([features[targets[0]], feature.reshape(1, -1)], dim=0) # construct feature matrix
+    else:
+      print(F'Category: {targets[0]}')
+      features[targets[0]] = feature.reshape(1, -1)
+    category = targets[0]
+  return features
+
+
 def save_plot(res):
     plt.figure()
     plt.plot(list(res.keys()), [obj["total_acc"] for obj in res.values()])
@@ -73,7 +88,7 @@ def total_acc(categories, class_accs, params):
 
 def predict(model, params, features=[]):
   print("Scoring...")
-  categories = collections.defaultdict(lambda: [0,0]) # store number of correct identifiactions and total number of identifications per category
+  categories = collections.defaultdict(lambda: [0,0]) # store number of correct identifictions and total number of identifications per category
   category = ""
   distances = []
   labels = []

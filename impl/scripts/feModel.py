@@ -6,22 +6,34 @@ import argparse, PIL
 
 
 class FEModel(BaseModel):
-  def __init__(self, model, transforms, device):
+  def __init__(self, model, transforms, device, adaptive=False):
     super().__init__(device)
     self.model = model
-    modules = list(self.model.children())[:-1] # remove last fully connected layer
-    self.model = torch.nn.Sequential(*modules)
+    # remove classification layer from adaptive network
+    if adaptive:
+      modules = list(self.model.classifier.children())[:-1]
+      self.model.classifier = torch.nn.Sequential(*modules)
+    else:
+      modules = list(self.model.children())[:-1] # remove last fully connected layer from 
+      self.model = torch.nn.Sequential(*modules)
     self.model.eval() # evaluation mode
     self.model.to(device) # save on GPU
     self.transforms = transforms
 
-    
+  
   def extract(self, path):
     with torch.no_grad(): # no training
         image = PIL.Image.open(path, 'r').convert('RGB') # open image skip transparency channel
         tensor = self.transforms(image)
         tensor = tensor.to(self.device) # save on GPU
         feature = self.model(tensor) # get model output
+        return torch.flatten(feature).cpu()
+
+
+  def extract_from_loader(self, img):
+    with torch.no_grad(): # no training
+        img = img.to(self.device) # save on GPU
+        feature = self.model(img) # get model output
         return torch.flatten(feature).cpu()
 
 

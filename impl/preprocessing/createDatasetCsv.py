@@ -20,7 +20,6 @@ def create_csv(path, v_size):
     valid_writer = csv.writer(valid_f, delimiter=',')
     train_writer.writerow(["file", "category"])
     valid_writer.writerow(["file", "category"])
-    y_label = 0 # transform string labels into numbers
     for cat_dir in sorted(os.listdir(path)):
       if not os.path.isdir(F'{path}{cat_dir}'):
         continue
@@ -29,11 +28,10 @@ def create_csv(path, v_size):
       for file_name in sorted(os.listdir(F'{path}{cat_name}')):
         file_dir = F"{cat_dir}/{file_name}"
         if (sample_count < v_size):
-          valid_writer.writerow((file_dir, y_label))
+          valid_writer.writerow((file_dir, cat_name))
         else:
-          train_writer.writerow((file_dir, y_label))
+          train_writer.writerow((file_dir, cat_name))
         sample_count += 1
-      y_label += 1
 
 
 def main():
