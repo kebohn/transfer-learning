@@ -4,8 +4,7 @@ sys.path.append("..") # append the path of the parent directory
 
 import torch
 import torchvision
-import argparse, json
-from imageDataset import CustomImageDataset
+import argparse
 import models
 import utilities
 
@@ -14,7 +13,8 @@ def parse_arguments():
   parser = argparse.ArgumentParser(description='Baseline script for transfer learning')
   parser.add_argument('--d', type=utilities.dir_path, help='Directory where files are stored (absolute dir)')
   parser.add_argument('--d_test', type=utilities.dir_path, help='Directory where test files are stored (absolute dir)')
-  parser.add_argument('--extract', dest='extract', action='store_true', help='Extract features and store it')
+  parser.add_argument('--features', type=utilities.dir_path, help='Directory where features are stored (absolute dir)')
+  parser.add_argument('--results', type=utilities.dir_path, help='Directory where results should be stored (absolute dir)')
   parser.add_argument('--cosine', dest='cosine', action='store_true', help='Apply cosine distance metric')
   parser.add_argument('--mean', dest='mean', action='store_true', help='Apply cosine distance on mean feature')
   parser.add_argument('--neighbor', dest='neighbor', action='store_true', help='Apply kNN metric')
@@ -37,23 +37,25 @@ def main():
   current_size = parsed_args.step
 
   # load test data
-  test_data = CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
+  test_data = utilities.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
   test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=1, shuffle=False) 
 
   # increase current size per category by step_size after every loop
   while(current_size <= parsed_args.max_size):
+    
+    # load existing features
+    if parsed_args.features:
+      features = torch.load(F'{parsed_args.features}features_size_{current_size}.pt')
 
-    if parsed_args.extract:
-
+    # compute new features
+    else:
       # load data
-      train_data = CustomImageDataset('data.csv', parsed_args.d, utilities.train_transforms(), current_size)
+      train_data = utilities.CustomImageDataset('data.csv', parsed_args.d, utilities.train_transforms(), current_size)
       train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=1, shuffle=False)
 
       # extract features from training data
       features = utilities.extract(model, train_loader)
-      torch.save(features, F'features_size_{current_size}.pt')
-    else:
-      features = torch.load(F'features_size_{current_size}.pt')
+      torch.save(features, F'{parsed_args.results}features_size_{current_size}.pt')
   
     res[current_size] = utilities.predict(
         model=model,
@@ -64,10 +66,8 @@ def main():
     current_size += parsed_args.step
    
   # write result to a file
-  with open('res.json', 'w') as fp:
-    json.dump(res, fp,  indent=4)
-      
-  utilities.save_training_size_plot(res)
+  utilities.save_json_file(F'{parsed_args.results}res', res) 
+  utilities.save_training_size_plot(parsed_args.results, res)
 
 
 if __name__ == "__main__":

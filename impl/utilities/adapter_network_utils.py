@@ -25,7 +25,7 @@ def define_model(data, fine_tune):
 
 def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_stop, current_size):
   loss = torch.nn.CrossEntropyLoss()
-  optimizer = optimizer = torch.optim.SGD(params=model.parameters(), lr=lr, momentum=momentum)
+  optimizer = optimizer = torch.optim.Adam(params=model.parameters(), lr=lr, momentum=momentum)
   valid_loss = []
   valid_acc = []
   train_loss = []
@@ -116,8 +116,7 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
     #scheduler.step(epoch_loss / len(valid_loader))
 
   # save model
-  path = path.rsplit('/', 2)
-  torch.save(model.state_dict(), F'{path[0]}/model_size_{current_size}_lr_{lr}_epochs_{epoch + 1}.pth')
+  torch.save(model.state_dict(), F'{path}model_size_{current_size}_lr_{lr}_epochs_{epoch + 1}.pth')
     
   time_elapsed = time.time() - since
   print(F'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
@@ -126,13 +125,13 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
   acc_data = {'train': train_acc, 'validation': valid_acc}
 
   # write loss and accuracy to json
-  utilities.save_json_file(F'loss_size_{current_size}', loss_data)
-  utilities.save_json_file(F'acc_size_{current_size}', acc_data)
+  utilities.save_json_file(F'{path}loss_size_{current_size}', loss_data)
+  utilities.save_json_file(F'{path}acc_size_{current_size}', acc_data)
 
   # save loss
-  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=loss_data, x_label='epochs', y_label='loss', title=F'Loss_size_{current_size}')
+  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=loss_data, x_label='epochs', y_label='loss', title=F'{path}Loss_size_{current_size}')
   # save accuracy
-  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=acc_data, x_label='epochs', y_label='accuracy', title=F'Accuracy_size_{current_size}')
+  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=acc_data, x_label='epochs', y_label='accuracy', title=F'{path}Accuracy_size_{current_size}')
 
 
 def test(model, test_loader, current_size):
@@ -166,3 +165,4 @@ def save_model_plot(x, y, x_label, y_label, title):
   plt.ylabel(y_label)
   plt.legend(list(y.keys()), loc='upper left')
   plt.savefig(F'{title}.jpg')
+  plt.close()
