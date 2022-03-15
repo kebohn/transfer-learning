@@ -11,6 +11,7 @@ def extract(model, train_loader):
   category = ""
   features = {}
   for data, _, name in train_loader: # iterate over training data
+    name = ''.join(name) # convert tuple to string
     feature = model.extract(data)
     if category == name:
       features[name] = torch.cat([features[name], feature.reshape(1, -1)], dim=0) # construct feature matrix
@@ -73,6 +74,9 @@ def predict(model, params, features=[], test_loader=[]):
 
 
   for test_data, _, test_name in test_loader:
+
+    # convert tuple to string
+    test_name = ''.join(test_name)
 
     # extract test feature from model
     X_test = model.extract(test_data)

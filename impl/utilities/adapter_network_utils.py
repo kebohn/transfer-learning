@@ -105,7 +105,7 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
   
     # early stopping
     if len(valid_loss) >= 2 and early_stop:
-      if abs(valid_loss[-2] - current_loss) <= 1e-3 or current_valid_loss > valid_loss[-2]:
+      if abs(valid_loss[-2] - current_loss) <= 1e-2 or current_valid_loss > valid_loss[-2]:
         es_counter += 1
 
       if es_counter == es_threshold:
@@ -130,9 +130,9 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
   utilities.save_json_file(F'acc_size_{current_size}', acc_data)
 
   # save loss
-  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=loss_data, x_label='epochs', y_label='loss', title='Loss_size_{current_size}')
+  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=loss_data, x_label='epochs', y_label='loss', title=F'Loss_size_{current_size}')
   # save accuracy
-  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=acc_data, x_label='epochs', y_label='accuracy', title='Accuracy_size_{current_size}')
+  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=acc_data, x_label='epochs', y_label='accuracy', title=F'Accuracy_size_{current_size}')
 
 
 def test(model, test_loader, current_size):
