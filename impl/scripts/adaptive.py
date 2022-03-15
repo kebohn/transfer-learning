@@ -3,7 +3,6 @@ import sys
 sys.path.append("..") # append the path of the parent directory
 
 import torch
-from imageDataset import CustomImageDataset
 import argparse
 import utilities
 import models
@@ -15,6 +14,7 @@ def parse_arguments():
   parser.add_argument('--d_test', type=utilities.dir_path, help='Directory where test files are stored (absolute dir)')
   parser.add_argument('--model', type=utilities.dir_path, help='Directory where model is stored (absolute dir)')
   parser.add_argument('--features', type=utilities.dir_path, help='Directory where features are stored (absolute dir)')
+  parser.add_argument('--results', type=utilities.dir_path, help='Directory where results should be stored (absolute dir)')
   parser.add_argument('--extract', dest='extract', action='store_true', help='Extract features and store it')
   parser.add_argument('--cosine', dest='cosine', action='store_true', help='Apply cosine distance metric')
   parser.add_argument('--mean', dest='mean', action='store_true', help='Apply cosine distance on mean feature')
@@ -33,11 +33,11 @@ def main():
   parsed_args = parse_arguments()
 
   # load test data already here because we need it in every case
-  test_data = CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
+  test_data = utilities.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
   
   # hyperparameters
   epochs = 100
-  lr = 0.001
+  lr = 0.0001
   momentum = 0.9
   current_size = parsed_args.step
   res = {}
@@ -53,14 +53,14 @@ def main():
     if parsed_args.model is not None:
       model.load_state_dict(torch.load(parsed_args.model))
     else: 
-      train_data = CustomImageDataset('data.csv', parsed_args.d, utilities.train_transforms(), current_size)
-      valid_data = CustomImageDataset('validation.csv', parsed_args.d, utilities.test_transforms())
+      train_data = utilities.CustomImageDataset('data.csv', parsed_args.d, utilities.train_transforms(), current_size)
+      valid_data = utilities.CustomImageDataset('validation.csv', parsed_args.d, utilities.test_transforms())
 
       train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=32, shuffle=True, num_workers=8)
       valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=32, shuffle=True, num_workers=8)
 
       # train data with current size of samples per category
-      utilities.train(model, epochs, lr, momentum, train_loader, valid_loader, parsed_args.d, parsed_args.early_stop, current_size)
+      utilities.train(model, epochs, lr, momentum, train_loader, valid_loader, parsed_args.results, parsed_args.early_stop, current_size)
 
     # extract features from model and use this with another specified metric to predict the categories
     if parsed_args.extract:
@@ -78,7 +78,7 @@ def main():
         features = utilities.extract(features_model, train_loader)
 
         # save train features
-        torch.save(features, F'{current_size}_features.pt')
+        torch.save(features, F'{parsed_args.results}features_size_{current_size}.pt')
 
       # run prediction
       res[current_size] = utilities.predict(
@@ -95,8 +95,8 @@ def main():
 
     current_size += parsed_args.step
 
-  utilities.save_json_file('res', res)
-  utilities.save_training_size_plot(res)
+  utilities.save_json_file(F'{parsed_args.results}res', res)
+  utilities.save_training_size_plot(parsed_args.results, res)
 
 
 if __name__ == "__main__":

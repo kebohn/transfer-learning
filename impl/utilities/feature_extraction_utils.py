@@ -22,12 +22,13 @@ def extract(model, train_loader):
   return features
 
 
-def save_training_size_plot(res):
+def save_training_size_plot(res_dir, res):
   plt.figure()
   plt.plot(list(res.keys()), [obj["total_acc"] for obj in res.values()])
   plt.xlabel('Training Size') 
   plt.ylabel('Accuracy') 
-  plt.savefig('total_acc.jpg')
+  plt.savefig(F'{res_dir}total_acc.jpg')
+  plt.close()
 
 
 def class_acc(data, category):
