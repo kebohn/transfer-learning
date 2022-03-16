@@ -37,7 +37,7 @@ def main():
   
   # hyperparameters
   epochs = 100
-  lr = 0.0001
+  lr = 0.001
   momentum = 0.9
   current_size = parsed_args.step
   res = {}
@@ -51,7 +51,7 @@ def main():
 
     # if specified saved model will be used otherwise a new model will be created
     if parsed_args.model is not None:
-      model.load_state_dict(torch.load(parsed_args.model))
+      model.load_state_dict(torch.load(F'{parsed_args.model}model_size_{current_size}.pth'))
     else: 
       train_data = utilities.CustomImageDataset('data.csv', parsed_args.d, utilities.train_transforms(), current_size)
       valid_data = utilities.CustomImageDataset('validation.csv', parsed_args.d, utilities.test_transforms())
@@ -65,7 +65,7 @@ def main():
     # extract features from model and use this with another specified metric to predict the categories
     if parsed_args.extract:
       if parsed_args.features is not None: # load features from provided dir
-        features = torch.load(parsed_args.features)
+        features = torch.load(F'{parsed_args.features}_size_{current_size}.pt')
       else:
         # use Feature Extraction Model
         features_model = models.FEModel(model=model, device=utilities.get_device(), adaptive=True)
