@@ -25,7 +25,7 @@ def define_model(data, fine_tune):
 
 def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_stop, current_size):
   loss = torch.nn.CrossEntropyLoss()
-  optimizer = optimizer = torch.optim.Adam(params=model.parameters(), lr=lr, momentum=momentum)
+  optimizer = optimizer = torch.optim.SGD(params=model.parameters(), lr=lr, momentum=momentum)
   valid_loss = []
   valid_acc = []
   train_loss = []
@@ -134,8 +134,9 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
   save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=acc_data, x_label='epochs', y_label='accuracy', title=F'{path}Accuracy_size_{current_size}')
 
 
-def test(model, test_loader, current_size):
+def test(model, test_loader):
   print("Test model...")
+  res = {}
   num_correct = 0
   num_samples = 0
   model.eval()
@@ -153,8 +154,9 @@ def test(model, test_loader, current_size):
         
   acc = num_correct / num_samples
   print(F'Test Accuracy: {acc:.2f}')
+  res["total_acc"] = acc
     
-  utilities.save_json_file(F'test_acc_size_{current_size}', acc)
+  return res
 
 
 def save_model_plot(x, y, x_label, y_label, title):

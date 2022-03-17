@@ -91,7 +91,7 @@ def main():
     # use the model to classify the images  
     else:
       test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=64, shuffle=False, num_workers=8)
-      utilities.test(model, test_loader, current_size)
+      res[current_size] = utilities.test(model, test_loader)
 
     current_size += parsed_args.step
 

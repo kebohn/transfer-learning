@@ -33,21 +33,22 @@ def visualize_filters(layers):
     plt.figure(figsize=(20, 17))
     for j, filter in enumerate(w):
       plt.subplot(x, y, j+1) # use shape of filter to define subplot
-      plt.imshow(filter[0, :, :].detach(), cmap='viridis') 
+      plt.imshow(filter[0, :, :].cpu().detach(), cmap='viridis') 
       plt.axis('off')
       plt.savefig(F'Conv_{i}_Filter.png')
     plt.close()
 
 
-def extractConvLayers(modules):
+def extractConvLayers(model):
+  modules = list(model.children())
   layers = []
   for m in modules:
     if type(m) == torch.nn.Conv2d:
       layers.append(m)
     elif type(m) == torch.nn.Sequential:
-      for i in m.children:
-        if type(m) == torch.nn.Conv2d:
-          layers.append(m)
+      for i in list(m.children()):
+        if type(i) == torch.nn.Conv2d:
+          layers.append(i)
   return layers
 
 
@@ -65,7 +66,7 @@ def get_layers(model):
       layer.register_forward_hook(hook_fn)
 
 
-def save_scatter_plot(features, proj, num_categories):
+def save_scatter_plot(features, proj, num_categories, name):
     plt.figure(figsize=(15, 15))
     ax = plt.subplot(1,1,1)
     index_start = 0
@@ -80,7 +81,7 @@ def save_scatter_plot(features, proj, num_categories):
     box = ax.get_position()
     ax.set_position([box.x0, box.y0 + box.height * 0.1, box.width, box.height * 0.9]) # Shrink current axis's height by 10% on the bottom
     lgd = ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=int(num_categories / 8))
-    plt.savefig('tsne.png', bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.savefig(F'{name}.png', bbox_extra_artists=(lgd,), bbox_inches='tight')
     plt.close()
  
 
@@ -101,7 +102,7 @@ def main():
     tsne_proj = tsne.fit_transform(embeddings)
 
     # visualize t-sne with coloring of correct class
-    save_scatter_plot(features, tsne_proj, num_categories)
+    save_scatter_plot(features, tsne_proj, num_categories, 'tsne')
 
     # invoke pca algo
     pca = PCA(n_components=2)
@@ -109,7 +110,7 @@ def main():
     print(F'Variance ratio: {pca.explained_variance_ratio_}')
 
     # visualize pca with coloring of correct class
-    save_scatter_plot(features, pca_proj, num_categories)
+    save_scatter_plot(features, pca_proj, num_categories, 'pca')
 
   else:
     # load test data
@@ -118,22 +119,23 @@ def main():
 
     # define and load existing model
     model = utilities.define_model(test_data, parsed_args.fine_tune)
-    model.cpu()
     model.load_state_dict(torch.load(parsed_args.model))
     model.eval()
 
     # visualize convolutional layers with input images
     if parsed_args.filters:
-      layers = extractConvLayers(parsed_args.model)
+      layers = extractConvLayers(model)
       visualize_filters(layers)
 
     if parsed_args.maps:
+      model.cpu()
       get_layers(model)
       with torch.no_grad():
         for img, label, name in test_loader:
           print(F"Save Feature maps for category {label} -> {name[0]}")
           _ = model(img)
           break
+  
       for mod, output in vis.items():
         # remove batch dimension
         data = output.squeeze()
