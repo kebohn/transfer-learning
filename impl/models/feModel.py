@@ -13,7 +13,7 @@ class FEModel(models.BaseModel):
       modules = list(self.model.classifier.children())[:-1]
       self.model.classifier = torch.nn.Sequential(*modules)
     else:
-      modules = list(self.model.children())[:-1] # remove last fully connected layer from 
+      modules = list(self.model.children())[:-1] # remove last fully connected layer from model
       self.model = torch.nn.Sequential(*modules)
     self.model.eval() # evaluation mode
     self.model.to(device) # save on GPU

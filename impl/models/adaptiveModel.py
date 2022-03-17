@@ -11,15 +11,10 @@ class AdaptiveModel(torch.nn.Module):
 		# add shallow network on top of pre-trained base model
 		if shallow: 
 			self.classifier = torch.nn.Sequential(
-				torch.nn.BatchNorm1d(2048), # Normalize output from pre-trained base model
 				torch.nn.Linear(2048, 1024),
-				torch.nn.BatchNorm1d(1024),
 				torch.nn.Tanh(),
 				torch.nn.Dropout(p=0.5),
 				torch.nn.Linear(1024, 256),
-				torch.nn.BatchNorm1d(256),
-				torch.nn.Tanh(),
-				torch.nn.Dropout(p=0.5),
 				torch.nn.Linear(256, num_categories),
 			) 
 		
@@ -33,6 +28,7 @@ class AdaptiveModel(torch.nn.Module):
 	def forward(self, x):
 		batch_size,_,_,_ = x.shape # get batch from input image
 		x = self.model(x)
+		x = torch.nn.functional.normalize(x, p=2, dim=0) # apply euclidean norm to the input before addit it into the adapter network
 		x = x.reshape(batch_size, -1) # reshaping the batch size
 		x = self.classifier(x)
 		return x
