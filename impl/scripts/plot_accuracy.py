@@ -36,6 +36,7 @@ def plot(path):
     plt.title(data_dir)
     plt.legend(list(res.keys()), loc='upper left')
     plt.savefig(F'{data_dir}_total_acc.jpg')
+    plt.close()
 
 
 # plot accuracy values of all used datasets and all metrics

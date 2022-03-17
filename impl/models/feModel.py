@@ -1,40 +1,28 @@
-from baseModel import BaseModel
 import torch
-import torchvision
 import numpy
-import argparse, PIL
+import argparse
+import models
 
 
-class DLModel(BaseModel):
-  def __init__(self, device):
+class FEModel(models.BaseModel):
+  def __init__(self, model, device, adaptive=False):
     super().__init__(device)
-    self.model = torchvision.models.resnet50(pretrained=True) # load pretrained model resnet-50
-    modules = list(self.model.children())[:-1] # remove fully connected layer
-    self.model = torch.nn.Sequential(*modules)
+    self.model = model
+    # remove classification layer from adaptive network
+    if adaptive:
+      modules = list(self.model.classifier.children())[:-1]
+      self.model.classifier = torch.nn.Sequential(*modules)
+    else:
+      modules = list(self.model.children())[:-1] # remove last fully connected layer from model
+      self.model = torch.nn.Sequential(*modules)
     self.model.eval() # evaluation mode
     self.model.to(device) # save on GPU
-    self.transforms = self.__define_img_transforms()
-    
-    
-  def __define_img_transforms(self):
-    return torchvision.transforms.Compose([
-      torchvision.transforms.Resize(224), # otherwise we would loose image information at the border
-      torchvision.transforms.CenterCrop(224), # take only center from image
-      torchvision.transforms.ToTensor(), # image to tensor
-      torchvision.transforms.Normalize(
-          mean=[0.485, 0.456, 0.406],
-          std=[0.229, 0.224, 0.225]
-      ),  # scale pixel values to range [-3,3]
-      lambda x : x.unsqueeze(0) # required by pytorch (add batch dimension)
-    ])
-    
-    
-  def extract(self, path):
+
+
+  def extract(self, img):
     with torch.no_grad(): # no training
-        image = PIL.Image.open(path, 'r').convert('RGB') # open image skip transparency channel
-        tensor = self.transforms(image)
-        tensor = tensor.to(self.device) # save on GPU
-        feature = self.model(tensor) # get model output
+        img = img.to(self.device) # save on GPU
+        feature = self.model(img) # get model output
         return torch.flatten(feature).cpu()
 
 

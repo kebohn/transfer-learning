@@ -1,13 +1,13 @@
-from baseModel import BaseModel
 from sklearn import svm
 from skimage.transform import resize
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import GridSearchCV
 import PIL
 import numpy
+import models
 
 
-class SVMModel(BaseModel):
+class SVMModel(models.BaseModel):
   def __init__(self, device):
     super().__init__(device)
     self.model = svm.SVC(decision_function_shape='ovr', max_iter=1000)
@@ -40,6 +40,7 @@ class SVMModel(BaseModel):
     self.model = cv.best_estimator_
     print("Model after tuning is:\n", self.model)      
         
+
   def predict(self, X_test, *args, **kwargs):
     X_test_std = self.scaler.transform(X_test.reshape(1, -1)) # standardize test with same metrics as train data
     [y_test] = self.model.predict(X_test_std) # returns only one element
