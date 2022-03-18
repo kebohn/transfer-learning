@@ -2,12 +2,16 @@ import torch
 import numpy
 import argparse
 import models
+import itertools
+
 
 
 class FEModel(models.BaseModel):
   def __init__(self, model, device, adaptive=False):
     super().__init__(device)
     self.model = model
+    self.tol = 1e-12 # tolerance
+
     # remove classification layer from adaptive network
     if adaptive:
       modules = list(self.model.classifier.children())[:-1]
@@ -23,7 +27,23 @@ class FEModel(models.BaseModel):
     with torch.no_grad(): # no training
         img = img.to(self.device) # save on GPU
         feature = self.model(img) # get model output
-        return torch.flatten(feature).cpu()
+        return feature.squeeze() # remove unecessary dimensions
+  
+
+  def normalize_train(self, features):
+    vals = torch.cat(tuple(features.values()), dim=0) # combine features into one tensor
+    self.norm = torch.linalg.norm(vals,dim=0) # compute norm over the columns
+
+    # check if computed norm is greater than tolerance to prevent divsion by zero
+    self.norm[self.norm < self.tol] = self.tol
+
+    # apply normalization
+    return {k: self.normalize(v) for k, v in features.items()}
+
+
+  def normalize(self, features):
+    # use same norm from training features
+    return torch.div(features, self.norm)
 
 
   def predict(self, X_test, features, distances, labels, params):

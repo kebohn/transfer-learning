@@ -1,4 +1,4 @@
-import imp
+from utilities.cuda import get_device
 import torch
 import matplotlib.pyplot as plt
 import numpy
@@ -7,20 +7,23 @@ import models
 
  
 def extract(model, train_loader):
-  print("Extract features from...")
-  category = ""
-  features = {}
-  for data, _, name in train_loader: # iterate over training data
-    name = ''.join(name) # convert tuple to string
-    feature = model.extract(data)
-    if category == name:
-      features[name] = torch.cat([features[name], feature.reshape(1, -1)], dim=0) # construct feature matrix
-    else:
-      print(F'Category: {name}')
-      features[name] = feature.reshape(1, -1)
-    category = name
-  return features
+  print("Extract features from category:")
+  res = {}
 
+  # iterate over training data
+  for data, _, names in train_loader:
+    features = model.extract(data) # extract features for whole batch
+    cat_set = set(names)
+    names_arr = numpy.array(names)
+    for category in cat_set: # iterate over all distinctive categories in the batch
+      indices = numpy.argwhere(names_arr == category).flatten() # find indices from the same category
+      cat_features = torch.index_select(features, 0, torch.from_numpy(indices).to(get_device())) # retrieve only features from correct category
+      if category in res.keys(): # check if we already have some features
+        res[category] = torch.cat((res[category], cat_features), dim=0) # add new features to existing ones
+      else:
+        print(category)
+        res[category] = cat_features # add new features
+  return res
 
 def save_training_size_plot(res_dir, res):
   plt.figure()
@@ -64,15 +67,13 @@ def predict(model, params, features=[], test_loader=[]):
     svmModel = models.SVMModel(device="not used here")
     y_train = []
     X_train = []
-    for key, val in features.items():
+    features_norm = model.normalize_train(features)
+    for key, val in features_norm.items():
       y_train.extend(numpy.repeat(key, val.size()[0]))
-      tmp = numpy.split(val.numpy(), val.size()[0])
+      tmp = numpy.split(val.cpu().numpy(), val.size()[0])
       X_train.extend([i.flatten() for i in tmp])
 
-    # save transformation for test data and transform training data
-    X_strain_std = svmModel.fit_scaler(X_train)
-    svmModel.fit(X_strain_std, y_train)
-
+    svmModel.fit(X_train, y_train)
 
   for test_data, _, test_name in test_loader:
 
@@ -83,7 +84,8 @@ def predict(model, params, features=[], test_loader=[]):
     X_test = model.extract(test_data)
 
     if params.svm:
-      y_test = svmModel.predict(X_test)
+      X_test_norm = model.normalize(X_test) # normalize test data with norm from training data
+      y_test = svmModel.predict(X_test_norm.cpu().reshape(1, -1))
     else:
       y_test = model.predict(X_test, features, distances, labels, params)
 

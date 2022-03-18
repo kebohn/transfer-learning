@@ -18,7 +18,7 @@ python3 baseline.py --d /local/scratch/bohn/datasets/context_virus_RAW/train/ --
 
 The script `createDatasetCsv.py` creates two csv files containing the filepath and the respective category. The files can then be used with the `ImageDataset` Class in order to load the defined datasets in a batch for the model. The amount of validation samples can be controlled by adding the argument `--v_size`.
 
-### Transfer Learing Approaches
+### Transfer Learning Approaches
 
 The following approaches are implemented in `adaptive.py`:
 

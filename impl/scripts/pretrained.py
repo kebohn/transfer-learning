@@ -42,6 +42,7 @@ def main():
 
   # increase current size per category by step_size after every loop
   while(current_size <= parsed_args.max_size):
+    print(F'Using {current_size} images per category...')
     
     # load existing features
     if parsed_args.features:
@@ -51,7 +52,7 @@ def main():
     else:
       # load data
       train_data = utilities.CustomImageDataset('data.csv', parsed_args.d, utilities.train_transforms(), current_size)
-      train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=1, shuffle=False)
+      train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=10, shuffle=False, num_workers=5)
 
       # extract features from training data
       features = utilities.extract(model, train_loader)
