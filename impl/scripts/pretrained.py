@@ -7,6 +7,7 @@ import torchvision
 import argparse
 import models
 import utilities
+import data
 
 
 def parse_arguments():
@@ -37,7 +38,7 @@ def main():
   current_size = parsed_args.step
 
   # load test data
-  test_data = utilities.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
+  test_data = data.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
   test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=1, shuffle=False) 
 
   # increase current size per category by step_size after every loop
@@ -51,7 +52,7 @@ def main():
     # compute new features
     else:
       # load data
-      train_data = utilities.CustomImageDataset('data.csv', parsed_args.d, utilities.train_transforms(), current_size)
+      train_data = data.CustomImageDataset('data.csv', parsed_args.d, utilities.test_transforms(), current_size)
       train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=10, shuffle=False, num_workers=5)
 
       # extract features from training data

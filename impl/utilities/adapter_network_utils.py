@@ -7,25 +7,24 @@ import models
 import utilities
 
 
-def define_model(data, fine_tune):
-  # define network
-  base_model = torchvision.models.resnet50(pretrained=True) # load pretrained model resnet-50
-  model = models.AdaptiveModel(model=base_model, num_categories=data.get_categories(), shallow=not fine_tune)
 
-  # if fine_tune is true the whole model will be trained again
-  if not fine_tune:
-    # Freeze all layers except the additional classifier layers
-    for name, param in model.named_parameters():
-      # train the adapter network
-      if name.split('.')[0] not in 'classifier':
-          param.requires_grad = False
-
-  return model.to(utilities.get_device()) # save to GPU
-
-
-def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_stop, current_size):
+def train(
+  pre_trained_model,
+  adapter_model,
+  epochs,
+  lr,
+  momentum,
+  parsed_args,
+  current_size,
+  features_valid=[],
+  train_loader=[],
+  valid_loader={}
+):
+  # define loss and optimizer
   loss = torch.nn.CrossEntropyLoss()
-  optimizer = optimizer = torch.optim.SGD(params=model.parameters(), lr=lr, momentum=momentum)
+  optimizer = optimizer = torch.optim.SGD(params=adapter_model.parameters(), lr=lr, momentum=momentum)
+
+  # define running arrays
   valid_loss = []
   valid_acc = []
   train_loss = []
@@ -40,19 +39,22 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
   # train network
   print("Learning Model...")
   since = time.time()
-  # learning rate decay 1/10 when a plateau is reached, currently not used
-  # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', patience=5, verbose=True, min_lr=1e-6)
+ 
   for epoch in range(epochs):
 
     print(F'\nEpoch {epoch + 1}/{epochs}:')
     epoch_loss = 0
+
+    # retrieve train and valid feature loader
+    if features_valid:
+      train_loader, valid_loader = utilities.prepare_features_for_training(pre_trained_model, train_loader, features_valid)
 
     for data, targets, _ in train_loader: # iterate over training data in batches
       data = data.to(utilities.get_device())
       targets = targets.to(utilities.get_device())
 
       # forward pass
-      scores = model(data)
+      scores = adapter_model(data)
       current_loss = loss(scores, targets)
 
       # backward pass
@@ -79,7 +81,7 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
     epoch_loss = 0
     num_correct = 0
     num_samples = 0
-    model.eval()
+    adapter_model.eval()
 
     with torch.no_grad():
       for x, y, _ in valid_loader:
@@ -87,7 +89,7 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
         y = y.to(utilities.get_device())
 
         # forward pass
-        scores = model(x)
+        scores = adapter_model(x)
 
         _, predictions = scores.max(1)
         num_correct += predictions.eq(y).sum().item()
@@ -104,7 +106,7 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
     print(F'Validation Loss: {valid_loss[-1]:.2f} | Validation Accuracy: {valid_acc[-1]:.2f}')
   
     # early stopping
-    if len(valid_loss) >= 2 and early_stop:
+    if len(valid_loss) >= 2 and parsed_args.early_stop:
       if abs(valid_loss[-2] - current_loss) <= 1e-2 or current_valid_loss > valid_loss[-2]:
         es_counter += 1
 
@@ -112,11 +114,8 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
         print("Model starts to overfit, training stopped")
         break
 
-    # rate decay when validation loss is not changing (currently not used)
-    #scheduler.step(epoch_loss / len(valid_loader))
-
   # save model
-  torch.save(model.state_dict(), F'{path}model_size_{current_size}_lr_{lr}_epochs_{epoch + 1}.pth')
+  torch.save(adapter_model.state_dict(), F'{parsed_args.path}model_size_{current_size}_lr_{lr}_epochs_{epoch + 1}.pth')
     
   time_elapsed = time.time() - since
   print(F'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
@@ -125,13 +124,13 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
   acc_data = {'train': train_acc, 'validation': valid_acc}
 
   # write loss and accuracy to json
-  utilities.save_json_file(F'{path}loss_size_{current_size}', loss_data)
-  utilities.save_json_file(F'{path}acc_size_{current_size}', acc_data)
+  utilities.save_json_file(F'{parsed_args.path}loss_size_{current_size}', loss_data)
+  utilities.save_json_file(F'{parsed_args.path}acc_size_{current_size}', acc_data)
 
   # save loss
-  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=loss_data, x_label='epochs', y_label='loss', title=F'{path}Loss_size_{current_size}')
+  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=loss_data, x_label='epochs', y_label='loss', title=F'{parsed_args.path}Loss_size_{current_size}')
   # save accuracy
-  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=acc_data, x_label='epochs', y_label='accuracy', title=F'{path}Accuracy_size_{current_size}')
+  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=acc_data, x_label='epochs', y_label='accuracy', title=F'{parsed_args.path}Accuracy_size_{current_size}')
 
 
 def test(model, test_loader):

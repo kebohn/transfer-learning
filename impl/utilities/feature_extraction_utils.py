@@ -4,10 +4,33 @@ import matplotlib.pyplot as plt
 import numpy
 import collections
 import models
+import datasets
+
+
+def prepare_features_for_training(pre_trained_model, train_loader, features_valid):
+ 
+  # extract training features from training data
+  features_train = extract(pre_trained_model, train_loader)
+
+  # normalize training features 
+  features_train_norm = pre_trained_model.normalize_train(features_train)
+
+  # handle trainig features like a dataset
+  feature_train_data = datasets.FeatureDataset(features_train_norm)
+  feature_train_loader = torch.utils.data.DataLoader(dataset=feature_train_data, batch_size=10, shuffle=True, num_workers=8)
+
+  # normalize validation features according train normalization
+  features_valid_norm = pre_trained_model.normalize_test(features_valid)
+
+  # handle validation features like a dataset
+  feature_valid_data = datasets.FeatureDataset(features_valid_norm)
+  feature_valid_loader = torch.utils.data.DataLoader(dataset=feature_valid_data, batch_size=10, shuffle=True, num_workers=8)
+
+  return feature_train_loader, feature_valid_loader
 
  
 def extract(model, train_loader):
-  print("Extract features from category:")
+  print("Extract features...")
   res = {}
 
   # iterate over training data
@@ -21,9 +44,9 @@ def extract(model, train_loader):
       if category in res.keys(): # check if we already have some features
         res[category] = torch.cat((res[category], cat_features), dim=0) # add new features to existing ones
       else:
-        print(category)
         res[category] = cat_features # add new features
   return res
+
 
 def save_training_size_plot(res_dir, res):
   plt.figure()

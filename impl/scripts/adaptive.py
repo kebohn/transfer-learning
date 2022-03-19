@@ -3,9 +3,11 @@ import sys
 sys.path.append("..") # append the path of the parent directory
 
 import torch
+import torchvision
 import argparse
 import utilities
 import models
+import data
 
 
 def parse_arguments():
@@ -33,7 +35,7 @@ def main():
   parsed_args = parse_arguments()
 
   # load test data already here because we need it in every case
-  test_data = utilities.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
+  test_data = data.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
   
   # hyperparameters
   epochs = 100
@@ -42,25 +44,42 @@ def main():
   current_size = parsed_args.step
   res = {}
 
+  # load pre-trained model for feature extraction
+  res50_model = torchvision.models.resnet50(pretrained=True) # load pretrained model resnet-50
+  pre_trained_model = models.FEModel(model=res50_model, device=utilities.get_device())
+
+  # define adapter model
+  adapter_model = models.AdaptiveModel(num_categories=test_data.get_categories())
+  adapter_model.to(utilities.get_device()) # save to GPU
+
+  # load validation data
+  valid_data = data.CustomImageDataset('validation.csv', parsed_args.d, utilities.test_transforms())
+  valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=10, shuffle=True, num_workers=8)
+
+  # extract validation features from validation data
+  features_valid = utilities.extract(pre_trained_model, valid_loader)
+  #torch.save(features, F'{parsed_args.results}features_valid_size_{current_size}.pt')
+
   # increase current size per category by step_size after every loop
   while(current_size <= parsed_args.max_size):
     print(F'Using {current_size} images per category...')
 
-    # load pre-trained model
-    model = utilities.define_model(test_data, parsed_args.fine_tune)
+    # load data
+    train_data = data.CustomImageDataset('data.csv', parsed_args.d, utilities.train_transforms(), current_size)
+    train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=10, shuffle=True, num_workers=8)
 
-    # if specified saved model will be used otherwise a new model will be created
-    if parsed_args.model is not None:
-      model.load_state_dict(torch.load(F'{parsed_args.model}model_size_{current_size}.pth'))
-    else: 
-      train_data = utilities.CustomImageDataset('data.csv', parsed_args.d, utilities.train_transforms(), current_size)
-      valid_data = utilities.CustomImageDataset('validation.csv', parsed_args.d, utilities.test_transforms())
-
-      train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=32, shuffle=True, num_workers=8)
-      valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=32, shuffle=True, num_workers=8)
-
-      # train data with current size of samples per category
-      utilities.train(model, epochs, lr, momentum, train_loader, valid_loader, parsed_args.results, parsed_args.early_stop, current_size)
+    # train data with current size of samples per category
+    utilities.train(
+      pre_trained_model=pre_trained_model,
+      adapter_model=adapter_model, 
+      epochs=epochs, 
+      lr=lr,
+      momentum=momentum, 
+      train_loader=train_loader,
+      features_valid=features_valid,
+      parsed_args=parsed_args,
+      current_size=current_size
+    )
 
     # extract features from model and use this with another specified metric to predict the categories
     if parsed_args.extract:
@@ -68,7 +87,7 @@ def main():
         features = torch.load(F'{parsed_args.features}_size_{current_size}.pt')
       else:
         # use Feature Extraction Model
-        features_model = models.FEModel(model=model, device=utilities.get_device(), adaptive=True)
+        features_model = models.FEModel(model=adapter_model, device=utilities.get_device(), adaptive=True)
 
         # new loader without shuffling and no batches
         train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=1, shuffle=False)
@@ -91,7 +110,7 @@ def main():
     # use the model to classify the images  
     else:
       test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=64, shuffle=False, num_workers=8)
-      res[current_size] = utilities.test(model, test_loader)
+      res[current_size] = utilities.test(adapter_model, test_loader)
 
     current_size += parsed_args.step
 
