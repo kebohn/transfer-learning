@@ -7,7 +7,7 @@ class FeatureDataset(torch.utils.data.Dataset):
     self.values = torch.cat(tuple(features.values()), dim=0) # combine features into one tensor
     self.names = []
     for key, val in features.items():
-      key_list = numpy.repeat(key, val.size(1)) # add the same amount of category names to list as samples
+      key_list = numpy.repeat(key, val.size(0)) # add the same amount of category names to list as samples
       self.names.extend(key_list) # add the current category names list to whole names list
 
 
@@ -24,4 +24,4 @@ class FeatureDataset(torch.utils.data.Dataset):
 
 
   def get_categories(self):
-    return len(list(self.features.keys()))a
+    return len(list(self.features.keys()))

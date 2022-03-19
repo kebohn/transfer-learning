@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy
 import collections
 import models
-import datasets
+import data
 
 
 def prepare_features_for_training(pre_trained_model, train_loader, features_valid):
@@ -16,15 +16,15 @@ def prepare_features_for_training(pre_trained_model, train_loader, features_vali
   features_train_norm = pre_trained_model.normalize_train(features_train)
 
   # handle trainig features like a dataset
-  feature_train_data = datasets.FeatureDataset(features_train_norm)
-  feature_train_loader = torch.utils.data.DataLoader(dataset=feature_train_data, batch_size=10, shuffle=True, num_workers=8)
+  feature_train_data = data.FeatureDataset(features_train_norm)
+  feature_train_loader = torch.utils.data.DataLoader(dataset=feature_train_data, batch_size=10, shuffle=True)
 
   # normalize validation features according train normalization
   features_valid_norm = pre_trained_model.normalize_test(features_valid)
 
   # handle validation features like a dataset
-  feature_valid_data = datasets.FeatureDataset(features_valid_norm)
-  feature_valid_loader = torch.utils.data.DataLoader(dataset=feature_valid_data, batch_size=10, shuffle=True, num_workers=8)
+  feature_valid_data = data.FeatureDataset(features_valid_norm)
+  feature_valid_loader = torch.utils.data.DataLoader(dataset=feature_valid_data, batch_size=10, shuffle=True)
 
   return feature_train_loader, feature_valid_loader
 

@@ -3,7 +3,6 @@ import torchvision
 import matplotlib.pyplot as plt
 import time
 import numpy
-import models
 import utilities
 
 
@@ -16,9 +15,9 @@ def train(
   momentum,
   parsed_args,
   current_size,
-  features_valid=[],
+  features_valid={},
   train_loader=[],
-  valid_loader={}
+  valid_loader=[]
 ):
   # define loss and optimizer
   loss = torch.nn.CrossEntropyLoss()
@@ -47,18 +46,22 @@ def train(
 
     # retrieve train and valid feature loader
     if features_valid:
-      train_loader, valid_loader = utilities.prepare_features_for_training(pre_trained_model, train_loader, features_valid)
+      t_loader, v_loader = utilities.prepare_features_for_training(pre_trained_model, train_loader, features_valid)
+    else:
+      t_loader, v_loader = train_loader, valid_loader
 
-    for data, targets, _ in train_loader: # iterate over training data in batches
+
+    for data, targets, _ in t_loader: # iterate over training data in batches
       data = data.to(utilities.get_device())
       targets = targets.to(utilities.get_device())
+
+      optimizer.zero_grad()
 
       # forward pass
       scores = adapter_model(data)
       current_loss = loss(scores, targets)
 
       # backward pass
-      optimizer.zero_grad()
       current_loss.backward()
 
       # gradient descent
@@ -72,7 +75,7 @@ def train(
       num_samples += predictions.size(0)
 
     # compute training loss and accuracy and append to list
-    train_loss.append(epoch_loss / len(train_loader))
+    train_loss.append(epoch_loss / len(t_loader))
     train_acc.append(num_correct / num_samples)
     print(F'Train Loss: {train_loss[-1]:.2f} | Accuracy: {train_acc[-1]:.2f}')
 
@@ -84,7 +87,7 @@ def train(
     adapter_model.eval()
 
     with torch.no_grad():
-      for x, y, _ in valid_loader:
+      for x, y, _ in v_loader:
         x = x.to(utilities.get_device())
         y = y.to(utilities.get_device())
 
@@ -100,7 +103,7 @@ def train(
         epoch_loss += current_loss.item()
         
     # compute test loss and accuracy and append to list
-    current_valid_loss = epoch_loss / len(valid_loader)
+    current_valid_loss = epoch_loss / len(v_loader)
     valid_loss.append(current_valid_loss)
     valid_acc.append(num_correct / num_samples)
     print(F'Validation Loss: {valid_loss[-1]:.2f} | Validation Accuracy: {valid_acc[-1]:.2f}')

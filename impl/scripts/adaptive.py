@@ -39,7 +39,7 @@ def main():
   
   # hyperparameters
   epochs = 100
-  lr = 0.001
+  lr = 0.01
   momentum = 0.9
   current_size = parsed_args.step
   res = {}
@@ -53,6 +53,7 @@ def main():
   adapter_model.to(utilities.get_device()) # save to GPU
 
   # load validation data
+  print("Prepare validation dataset...")
   valid_data = data.CustomImageDataset('validation.csv', parsed_args.d, utilities.test_transforms())
   valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=10, shuffle=True, num_workers=8)
 
