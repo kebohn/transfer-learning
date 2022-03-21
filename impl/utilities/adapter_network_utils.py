@@ -46,7 +46,10 @@ def train(
 
     # retrieve train and valid feature loader
     if features_valid:
-      t_loader, v_loader = utilities.prepare_features_for_training(pre_trained_model, train_loader, features_valid)
+      t_loader, v_loader, f_train = utilities.prepare_features_for_training(pre_trained_model, train_loader, features_valid)
+      
+      # save features
+      torch.save(f_train, F'{parsed_args.results}features_pretrained_size_{current_size}.pt')
     else:
       t_loader, v_loader = train_loader, valid_loader
 

@@ -26,7 +26,7 @@ def prepare_features_for_training(pre_trained_model, train_loader, features_vali
   feature_valid_data = data.FeatureDataset(features_valid_norm)
   feature_valid_loader = torch.utils.data.DataLoader(dataset=feature_valid_data, batch_size=10, shuffle=False)
 
-  return feature_train_loader, feature_valid_loader
+  return feature_train_loader, feature_valid_loader, features_train
 
  
 def extract(model, train_loader):

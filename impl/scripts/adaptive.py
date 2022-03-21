@@ -66,6 +66,9 @@ def main():
   while(current_size <= parsed_args.max_size):
     print(F'Using {current_size} images per category...')
 
+    # make sure that the weights are randomly initialized after each iteration
+    adapter_model.reset_weights()
+
     # load training data
     train_data = data.CustomImageDataset('data.csv', parsed_args.d, utilities.train_transforms(), current_size)
     train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=10, shuffle=False, num_workers=8)
@@ -98,6 +101,9 @@ def main():
         
       # extract features from trained adaptive model
       adaptive_train_features = utilities.extract(adaptive_features_model, f_train_loader)
+
+      # save features
+      torch.save(adaptive_train_features, F'{parsed_args.results}features_adaptive_size_{current_size}.pt')
 
       # run prediction
       res[current_size] = utilities.predict(

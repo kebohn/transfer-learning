@@ -9,6 +9,8 @@ import numpy
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
+from sklearn.metrics import roc_curve, auc
+from sklearn.metrics.pairwise import cosine_similarity
 import utilities
 
 vis = {} # dict stores all layer outputs
@@ -20,7 +22,8 @@ def parse_arguments():
   parser.add_argument('--fine-tune', dest='fine_tune', action='store_true', help='Define if the whole model is fine-tuned (Default: false)')
   parser.add_argument('--filters', dest='filters', action='store_true', help='Visualize filters of model (Default: false)')
   parser.add_argument('--maps', dest='maps', action='store_true', help='Visualize feature maps of model (Default: false)')
-  parser.add_argument('--tsne', dest='tsne', action='store_true', help='Apply t-SNE projection on features (Default: false)')
+  parser.add_argument('--dm', dest='dm', action='store_true', help='Apply dimensionality reduction (t-sne, pca) on features (Default: false)')
+  parser.add_argument('--roc', dest='roc', action='store_true', help='Visualize RoC graph on features (Default: false)')
   parser.add_argument('--features', type=utilities.dir_path, help='Directory where features are stored (absolute dir)')
   return parser.parse_args()
 
@@ -83,6 +86,26 @@ def save_scatter_plot(features, proj, num_categories, name):
     lgd = ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=int(num_categories / 8))
     plt.savefig(F'{name}.png', bbox_extra_artists=(lgd,), bbox_inches='tight')
     plt.close()
+
+def save_roc_curve(name, fpr, tpr, roc_auc):
+  plt.figure()
+  lw = 2
+  plt.plot(
+      fpr[2],
+      tpr[2],
+      color="darkorange",
+      lw=lw,
+      label=F"ROC curve (area = {roc_auc[2]:.2f})",
+  )
+  plt.plot([0, 1], [0, 1], color="navy", lw=lw, linestyle="--")
+  plt.xlim([0.0, 1.0])
+  plt.ylim([0.0, 1.05])
+  plt.xlabel("False Positive Rate")
+  plt.ylabel("True Positive Rate")
+  plt.title("Receiver operating characteristic example")
+  plt.legend(loc="lower right")
+  plt.savefig(F"{name}.png")
+  plt.close()
  
 
 def main():
@@ -90,27 +113,63 @@ def main():
 
   if parsed_args.features is not None:
     features = torch.load(parsed_args.features)
-    f_dim = (list(features.values())[0]).size(1) # get feature dimension (retrieved from first element)
-    num_categories = len(features.keys()) # get number of categories
-    embeddings = torch.zeros((0, f_dim), dtype=torch.float32) # init embedding with calculated f dimension
-    for f in features.values():
-      # stack all features from every class into one embeddings tensor
-      embeddings = torch.cat((embeddings, f))
+    if  parsed_args.dm:
+      
+      f_dim = (list(features.values())[0]).size(1) # get feature dimension (retrieved from first element)
+      num_categories = len(features.keys()) # get number of categories
+      embeddings = torch.zeros((0, f_dim), dtype=torch.float32) # init embedding with calculated f dimension
+      for f in features.values():
+        # stack all features from every class into one embeddings tensor
+        embeddings = torch.cat((embeddings, f))
 
-    # invoke t-SNE on stacked feature embedding
-    tsne = TSNE(n_components=2, perplexity=40, init='pca', learning_rate='auto', verbose=1)
-    tsne_proj = tsne.fit_transform(embeddings)
+      # invoke t-SNE on stacked feature embedding
+      tsne = TSNE(n_components=2, perplexity=40, init='pca', learning_rate='auto', verbose=1)
+      tsne_proj = tsne.fit_transform(embeddings)
 
-    # visualize t-sne with coloring of correct class
-    save_scatter_plot(features, tsne_proj, num_categories, 'tsne')
+      # visualize t-sne with coloring of correct class
+      save_scatter_plot(features, tsne_proj, num_categories, 'tsne')
 
-    # invoke pca algo
-    pca = PCA(n_components=2)
-    pca_proj = pca.fit_transform(embeddings)
-    print(F'Variance ratio: {pca.explained_variance_ratio_}')
+      # invoke pca algo
+      pca = PCA(n_components=2)
+      pca_proj = pca.fit_transform(embeddings)
+      print(F'Variance ratio: {pca.explained_variance_ratio_}')
 
-    # visualize pca with coloring of correct class
-    save_scatter_plot(features, pca_proj, num_categories, 'pca')
+      # visualize pca with coloring of correct class
+      save_scatter_plot(features, pca_proj, num_categories, 'pca')
+    if parsed_args.roc:
+
+      plt.figure()
+
+      # iterate over all classes
+      fpr = tpr = thresh = roc_auc = {}
+      cat_list = list(features.keys())
+      for idx, (cat, vals) in enumerate(features.items()):
+
+        # compute pairwise similarity of all features in one class
+        sim_dist_self = 1 - cosine_similarity(vals.cpu())
+
+        # filter out the current class
+        features_other = {k:v for k,v in features.items() if k != cat}
+
+        # concat all other features in one tensor
+        vals_other = torch.cat(tuple(features_other.values()), dim=0) # combine features into one tensor
+
+        # compute pairwise similarity with all other classes
+        sim_dist_other = 1 - cosine_similarity(vals.cpu(), vals_other.cpu())
+
+        # perfom roc scheme
+        fpr[idx], tpr[idx], thresh[idx] = roc_curve(sim_dist_self, sim_dist_other)
+        roc_auc[idx] = auc(fpr[idx], tpr[idx])
+        # plotting    
+        plt.plot(fpr[0], tpr[0], linestyle='--',color='orange', label='Class 0 vs Rest')
+
+        break
+      plt.title('Multiclass ROC curve')
+      plt.xlabel('False Positive Rate')
+      plt.ylabel('True Positive rate')
+      plt.legend(loc='best')
+      plt.savefig('Multiclass ROC',dpi=300);  
+
 
   else:
     # load test data
