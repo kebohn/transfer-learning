@@ -24,7 +24,7 @@ def prepare_features_for_training(pre_trained_model, train_loader, features_vali
 
   # handle validation features like a dataset
   feature_valid_data = data.FeatureDataset(features_valid_norm)
-  feature_valid_loader = torch.utils.data.DataLoader(dataset=feature_valid_data, batch_size=10, shuffle=True)
+  feature_valid_loader = torch.utils.data.DataLoader(dataset=feature_valid_data, batch_size=10, shuffle=False)
 
   return feature_train_loader, feature_valid_loader
 
@@ -107,7 +107,7 @@ def predict(model, params, features=[], test_loader=[]):
     X_test = model.extract(test_data)
 
     if params.svm:
-      X_test_norm = model.normalize(X_test) # normalize test data with norm from training data
+      X_test_norm = model.normalize_test(X_test) # normalize test data with norm from training data
       y_test = svmModel.predict(X_test_norm.cpu().reshape(1, -1))
     else:
       y_test = model.predict(X_test, features, distances, labels, params)

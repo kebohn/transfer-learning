@@ -2,23 +2,18 @@ import torch
 import numpy
 import argparse
 import models
-import itertools
-
 
 
 class FEModel(models.BaseModel):
-  def __init__(self, model, device, adaptive=False):
+  def __init__(self, model, device):
     super().__init__(device)
     self.model = model
     self.tol = 1e-12 # tolerance
 
-    # remove classification layer from adaptive network
-    if adaptive:
-      modules = list(self.model.classifier.children())[:-1]
-      self.model.classifier = torch.nn.Sequential(*modules)
-    else:
-      modules = list(self.model.children())[:-1] # remove last fully connected layer from model
-      self.model = torch.nn.Sequential(*modules)
+    # remove last fully connected layer from model
+    modules = list(self.model.children())[:-1] 
+    self.model = torch.nn.Sequential(*modules)
+
     self.model.eval() # evaluation mode
     self.model.to(device) # save on GPU
 

@@ -34,9 +34,6 @@ def parse_arguments():
 def main():
   parsed_args = parse_arguments()
 
-  # load test data already here because we need it in every case
-  test_data = data.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
-  
   # hyperparameters
   epochs = 100
   lr = 0.01
@@ -48,29 +45,33 @@ def main():
   res50_model = torchvision.models.resnet50(pretrained=True) # load pretrained model resnet-50
   pre_trained_model = models.FEModel(model=res50_model, device=utilities.get_device())
 
+  # load test and validation data
+  print("Prepare test and validation dataset...")
+  valid_data = data.CustomImageDataset('validation.csv', parsed_args.d, utilities.test_transforms())
+  test_data = data.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
+
+  valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=10, shuffle=False, num_workers=8)
+  test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=10, shuffle=False, num_workers=8)
+
+  # extract test and validation data
+  features_valid = utilities.extract(pre_trained_model, valid_loader)
+  features_test = utilities.extract(pre_trained_model, test_loader)
+  #torch.save(features, F'{parsed_args.results}features_valid_size_{current_size}.pt')
+
   # define adapter model
   adapter_model = models.AdaptiveModel(num_categories=test_data.get_categories())
   adapter_model.to(utilities.get_device()) # save to GPU
-
-  # load validation data
-  print("Prepare validation dataset...")
-  valid_data = data.CustomImageDataset('validation.csv', parsed_args.d, utilities.test_transforms())
-  valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=10, shuffle=True, num_workers=8)
-
-  # extract validation features from validation data
-  features_valid = utilities.extract(pre_trained_model, valid_loader)
-  #torch.save(features, F'{parsed_args.results}features_valid_size_{current_size}.pt')
 
   # increase current size per category by step_size after every loop
   while(current_size <= parsed_args.max_size):
     print(F'Using {current_size} images per category...')
 
-    # load data
+    # load training data
     train_data = data.CustomImageDataset('data.csv', parsed_args.d, utilities.train_transforms(), current_size)
-    train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=10, shuffle=True, num_workers=8)
+    train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=10, shuffle=False, num_workers=8)
 
     # train data with current size of samples per category
-    utilities.train(
+    f_train_loader, _ = utilities.train(
       pre_trained_model=pre_trained_model,
       adapter_model=adapter_model, 
       epochs=epochs, 
@@ -82,36 +83,33 @@ def main():
       current_size=current_size
     )
 
+    # normalize test data 
+    features_test_norm = pre_trained_model.normalize_test(features_test)
+
+    # handle test features like a dataset
+    feature_test_data = data.FeatureDataset(features_test_norm)
+    feature_test_loader = torch.utils.data.DataLoader(dataset=feature_test_data, batch_size=1, shuffle=False)
+
     # extract features from model and use this with another specified metric to predict the categories
     if parsed_args.extract:
-      if parsed_args.features is not None: # load features from provided dir
-        features = torch.load(F'{parsed_args.features}_size_{current_size}.pt')
-      else:
-        # use Feature Extraction Model
-        features_model = models.FEModel(model=adapter_model, device=utilities.get_device(), adaptive=True)
 
-        # new loader without shuffling and no batches
-        train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=1, shuffle=False)
-        test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=1, shuffle=False) 
-
-        # extract features from trained model
-        features = utilities.extract(features_model, train_loader)
-
-        # save train features
-        torch.save(features, F'{parsed_args.results}features_size_{current_size}.pt')
+      # use Feature Extraction Model
+      adaptive_features_model = models.FEModel(model=adapter_model, device=utilities.get_device())
+        
+      # extract features from trained adaptive model
+      adaptive_train_features = utilities.extract(adaptive_features_model, f_train_loader)
 
       # run prediction
       res[current_size] = utilities.predict(
-          model=features_model,
+          model=adaptive_features_model,
           params=parsed_args,
-          features=features,
+          features=adaptive_train_features,
           test_loader=test_loader,
         )
 
-    # use the model to classify the images  
+    # use the model to classify the images
     else:
-      test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=64, shuffle=False, num_workers=8)
-      res[current_size] = utilities.test(adapter_model, test_loader)
+      res[current_size] = utilities.test(adapter_model, feature_test_loader)
 
     current_size += parsed_args.step
 

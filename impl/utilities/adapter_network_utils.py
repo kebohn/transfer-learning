@@ -118,7 +118,7 @@ def train(
         break
 
   # save model
-  torch.save(adapter_model.state_dict(), F'{parsed_args.path}model_size_{current_size}_lr_{lr}_epochs_{epoch + 1}.pth')
+  torch.save(adapter_model.state_dict(), F'{parsed_args.results}model_size_{current_size}_lr_{lr}_epochs_{epoch + 1}.pth')
     
   time_elapsed = time.time() - since
   print(F'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
@@ -127,13 +127,16 @@ def train(
   acc_data = {'train': train_acc, 'validation': valid_acc}
 
   # write loss and accuracy to json
-  utilities.save_json_file(F'{parsed_args.path}loss_size_{current_size}', loss_data)
-  utilities.save_json_file(F'{parsed_args.path}acc_size_{current_size}', acc_data)
+  utilities.save_json_file(F'{parsed_args.results}loss_size_{current_size}', loss_data)
+  utilities.save_json_file(F'{parsed_args.results}acc_size_{current_size}', acc_data)
 
   # save loss
-  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=loss_data, x_label='epochs', y_label='loss', title=F'{parsed_args.path}Loss_size_{current_size}')
+  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=loss_data, x_label='epochs', y_label='loss', title=F'{parsed_args.results}Loss_size_{current_size}')
   # save accuracy
-  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=acc_data, x_label='epochs', y_label='accuracy', title=F'{parsed_args.path}Accuracy_size_{current_size}')
+  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=acc_data, x_label='epochs', y_label='accuracy', title=F'{parsed_args.results}Accuracy_size_{current_size}')
+
+  # return loader in case of extraction mode
+  return t_loader, v_loader
 
 
 def test(model, test_loader):
