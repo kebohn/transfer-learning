@@ -45,7 +45,7 @@ def extract(model, train_loader):
         res[category] = torch.cat((res[category], cat_features), dim=0) # add new features to existing ones
       else:
         res[category] = cat_features # add new features
-  return res
+  return dict(sorted(res.items()))
 
 
 def save_training_size_plot(res_dir, res):
@@ -107,7 +107,7 @@ def predict(model, params, features=[], test_loader=[]):
     X_test = model.extract(test_data)
 
     if params.svm:
-      X_test_norm = model.normalize_test(X_test) # normalize test data with norm from training data
+      X_test_norm = model.normalize(X_test) # normalize test data with norm from training data
       y_test = svmModel.predict(X_test_norm.cpu().reshape(1, -1))
     else:
       y_test = model.predict(X_test, features, distances, labels, params)

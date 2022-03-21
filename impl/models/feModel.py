@@ -10,8 +10,9 @@ class FEModel(models.BaseModel):
     self.model = model
     self.tol = 1e-12 # tolerance
 
-    # remove last fully connected layer from model
-    modules = list(self.model.children())[:-1] 
+    # replace last fully connected layer from model with Identity Layer
+    modules = list(self.model.children())
+    modules[-1] = models.IdentityModel()
     self.model = torch.nn.Sequential(*modules)
 
     self.model.eval() # evaluation mode

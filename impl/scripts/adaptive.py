@@ -104,7 +104,7 @@ def main():
           model=adaptive_features_model,
           params=parsed_args,
           features=adaptive_train_features,
-          test_loader=test_loader,
+          test_loader=feature_test_loader,
         )
 
     # use the model to classify the images
