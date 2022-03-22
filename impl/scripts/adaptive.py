@@ -56,18 +56,16 @@ def main():
   # extract test and validation data
   features_valid = utilities.extract(pre_trained_model, valid_loader)
   features_test = utilities.extract(pre_trained_model, test_loader)
-  #torch.save(features, F'{parsed_args.results}features_valid_size_{current_size}.pt')
+  #torch.save(features_valid, F'{parsed_args.results}features_valid.pt')
 
-  # define adapter model
-  adapter_model = models.AdaptiveModel(num_categories=test_data.get_categories())
-  adapter_model.to(utilities.get_device()) # save to GPU
 
   # increase current size per category by step_size after every loop
   while(current_size <= parsed_args.max_size):
     print(F'Using {current_size} images per category...')
 
-    # make sure that the weights are randomly initialized after each iteration
-    adapter_model.reset_weights()
+    # define adapter model - must be always 
+    adapter_model = models.AdaptiveModel(num_categories=test_data.get_categories())
+    adapter_model.to(utilities.get_device()) # save to GPU
 
     # load training data
     train_data = data.CustomImageDataset('data.csv', parsed_args.d, utilities.train_transforms(), current_size)

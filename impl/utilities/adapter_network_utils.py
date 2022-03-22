@@ -21,7 +21,7 @@ def train(
 ):
   # define loss and optimizer
   loss = torch.nn.CrossEntropyLoss()
-  optimizer = optimizer = torch.optim.SGD(params=adapter_model.parameters(), lr=lr, momentum=momentum)
+  optimizer = torch.optim.SGD(params=adapter_model.parameters(), lr=lr, momentum=momentum)
 
   # define running arrays
   valid_loss = []
@@ -32,7 +32,7 @@ def train(
   num_samples = 0
 
   # early stopping: when the validation error in the last 10 epochs does not change we quit training
-  es_counter = 0 
+  es_counter = 0
   es_threshold = 10
 
   # train network

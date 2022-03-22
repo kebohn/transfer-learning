@@ -11,6 +11,7 @@ from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 from sklearn.metrics import roc_curve, auc
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.preprocessing import label_binarize
 import utilities
 
 vis = {} # dict stores all layer outputs
@@ -25,6 +26,7 @@ def parse_arguments():
   parser.add_argument('--dm', dest='dm', action='store_true', help='Apply dimensionality reduction (t-sne, pca) on features (Default: false)')
   parser.add_argument('--roc', dest='roc', action='store_true', help='Visualize RoC graph on features (Default: false)')
   parser.add_argument('--features', type=utilities.dir_path, help='Directory where features are stored (absolute dir)')
+  parser.add_argument('--features_test', type=utilities.dir_path, help='Directory where test features are stored (absolute dir)')
   return parser.parse_args()
 
 
@@ -137,16 +139,31 @@ def main():
       # visualize pca with coloring of correct class
       save_scatter_plot(features, pca_proj, num_categories, 'pca')
     if parsed_args.roc:
+      features_test = torch.load(parsed_args.features_test)
+      y_test = []
+      for ctn, (_, val) in enumerate(features_test.items()):
+        key_list = numpy.repeat(ctn, val.size(0)) # add the same amount of category label to list as samples
+        y_test.extend(key_list) # add the current category label list to whole label list
+
+      
+      # one hot encoding
+      y = label_binarize(y_test, classes=list(set(y_test)))
+
+      print(y)
+      
+      # combine features into one tensor
+      vals_test = torch.cat(tuple(features_test.values()), dim=0)
 
       plt.figure()
 
       # iterate over all classes
-      fpr = tpr = thresh = roc_auc = {}
-      cat_list = list(features.keys())
+      fpr = tpr = thresh = roc_auc = dict()
       for idx, (cat, vals) in enumerate(features.items()):
 
         # compute pairwise similarity of all features in one class
-        sim_dist_self = 1 - cosine_similarity(vals.cpu())
+        #sim_self = cosine_similarity(vals.cpu())
+
+        #max_sim_self = sim_self.max(axis=1)
 
         # filter out the current class
         features_other = {k:v for k,v in features.items() if k != cat}
@@ -155,20 +172,45 @@ def main():
         vals_other = torch.cat(tuple(features_other.values()), dim=0) # combine features into one tensor
 
         # compute pairwise similarity with all other classes
-        sim_dist_other = 1 - cosine_similarity(vals.cpu(), vals_other.cpu())
+        #sim_other = cosine_similarity(vals.cpu(), vals_other.cpu())
+
+        #max_sim_other = sim_other.max(axis=1) # retrieve the largest distance per positive sample
+        #sim_matrix = cosine_similarity(vals_test.cpu(), vals.cpu())
+
+        #max_dist = sim_matrix.max(axis=1) # retrieve the largest distance per test sample
+
+        #print(max_dist)
 
         # perfom roc scheme
-        fpr[idx], tpr[idx], thresh[idx] = roc_curve(sim_dist_self, sim_dist_other)
-        roc_auc[idx] = auc(fpr[idx], tpr[idx])
+        #fpr[idx], tpr[idx], thresh[idx] = roc_curve(y[:, idx], max_dist)
+        #roc_auc[idx] = auc(fpr[idx], tpr[idx])
         # plotting    
-        plt.plot(fpr[0], tpr[0], linestyle='--',color='orange', label='Class 0 vs Rest')
+        #plt.plot(fpr[idx], tpr[idx], label=F'Class {idx} vs Rest')
+        #break
 
-        break
-      plt.title('Multiclass ROC curve')
-      plt.xlabel('False Positive Rate')
-      plt.ylabel('True Positive rate')
-      plt.legend(loc='best')
-      plt.savefig('Multiclass ROC',dpi=300);  
+        vals_magnitude = torch.linalg.vector_norm(vals, ord=2, dim=1)
+        vals_magnitude_other = torch.linalg.vector_norm(vals_other, ord=2, dim=1)
+        print(vals_magnitude.cpu().reshape(1,-1))
+        print(vals_magnitude_other.cpu().reshape(1,-1))
+
+        bins = numpy.linspace(min(vals_magnitude_other.cpu()), max(vals_magnitude_other.cpu()), 10)
+
+        plt.figure()
+        plt.hist(vals_magnitude.cpu().reshape(1,-1), bins, histtype='step', fill=False, label='class')
+        plt.hist(vals_magnitude_other.cpu().reshape(1,-1), bins, histtype='step', fill=False, label='other')
+        plt.savefig(F"hist{idx}.png")
+
+        
+
+      #plt.plot([0, 1], [0, 1], color="navy",  linestyle="--")
+      #plt.xlim([0.0, 1.0])
+      #plt.ylim([0.0, 1.05])
+      #plt.title('Multiclass ROC curve')
+      #plt.xlabel('False Positive Rate')
+      #plt.ylabel('True Positive rate')
+      #plt.legend(loc='best')
+      #plt.savefig('Multiclass ROC', dpi=300)
+      #plt.close()
 
 
   else:

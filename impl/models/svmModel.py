@@ -1,6 +1,5 @@
 from sklearn import svm
 from sklearn.model_selection import GridSearchCV
-import numpy
 import models
 
 
