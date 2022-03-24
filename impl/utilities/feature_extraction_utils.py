@@ -110,7 +110,7 @@ def predict(model, params, features=[], test_loader=[]):
       X_test_norm = model.normalize(X_test) # normalize test data with norm from training data
       y_test = svmModel.predict(X_test_norm.cpu().reshape(1, -1))
     else:
-      y_test = model.predict(X_test, features, distances, labels, params)
+      y_test, _ = model.predict(X_test, features, distances, labels, params)
 
     categories[test_name][0] += y_test == test_name # we only increase when category has been correctly identified
     categories[test_name][1] += 1 # always increase after each iteration s.t. we have the total number

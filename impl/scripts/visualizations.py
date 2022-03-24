@@ -9,10 +9,11 @@ import numpy
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import roc_curve, auc, roc_auc_score
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import label_binarize
 import utilities
+import models
 
 vis = {} # dict stores all layer outputs
 
@@ -89,6 +90,7 @@ def save_scatter_plot(features, proj, num_categories, name):
     plt.savefig(F'{name}.png', bbox_extra_artists=(lgd,), bbox_inches='tight')
     plt.close()
 
+
 def save_roc_curve(name, fpr, tpr, roc_auc):
   plt.figure()
   lw = 2
@@ -109,6 +111,26 @@ def save_roc_curve(name, fpr, tpr, roc_auc):
   plt.savefig(F"{name}.png")
   plt.close()
  
+
+def normalize_features(features):
+  vals = torch.cat(tuple(features.values()), dim=0) # combine features into one tensor
+  norm = torch.linalg.norm(vals,dim=0) # compute norm over the columns
+  tol = 1e-12 # tolerance
+
+  # check if computed norm is greater than tolerance to prevent divsion by zero
+  norm[norm < tol] = tol
+
+  # apply normalization
+  return {k: normalize(v, norm) for k, v in features.items()}
+
+
+def normalize(features, norm):
+  # use same norm from training features
+  return torch.div(features, norm)
+
+def softmax(x):
+  return numpy.exp(x) / sum(numpy.exp(x))
+
 
 def main():
   parsed_args = parse_arguments()
@@ -145,20 +167,56 @@ def main():
         key_list = numpy.repeat(ctn, val.size(0)) # add the same amount of category label to list as samples
         y_test.extend(key_list) # add the current category label list to whole label list
 
-      
-      # one hot encoding
+      # one hot encoding of test labels
       y = label_binarize(y_test, classes=list(set(y_test)))
-
-      print(y)
       
-      # combine features into one tensor
-      vals_test = torch.cat(tuple(features_test.values()), dim=0)
+      # normalize all features
+      features_test_norm = normalize_features(features_test)
 
-      plt.figure()
+      # combine features into one tensor
+      features_test_norm_tensor = torch.cat(tuple(features_test_norm.values()), dim=0)
+
+      # compute cosine similarity matrix
+      sim = cosine_similarity(features_test_norm_tensor.cpu())
+
+      # create probabilty score matrix for each sample
+      sim_proba = numpy.zeros((y.shape[0], y.shape[1]))
+
+      # ignore the similarity values on the diagonal because they will always be 1
+      numpy.fill_diagonal(sim, 0.0)
+
+      current_pos = 0
+
+      # iterate over each class
+      for idx, (cat, val) in enumerate(features_test_norm.items()):
+        
+        # get only similarity scores for one class
+        sim_cat = sim[:, current_pos:(current_pos + val.size(0))]
+
+        # get maximum value per feature sample (row)
+        max_sim_cat = numpy.max(sim_cat, axis=1)
+
+        print(max_sim_cat.shape)
+
+        # add the computed maximum similarity scores to already initialized probalibity matrix
+        sim_proba[:, idx] = max_sim_cat
+
+        # increase current pos
+        current_pos += val.size(0)
+
+      # apply softmax on each row such that we have a probability for each class that sums up to 1
+      sim_proba = numpy.apply_along_axis(softmax, 1, sim_proba)
+      print(sim_proba.shape)
+      print(y.shape)
+
+      auc = roc_auc_score(y, sim_proba, multi_class='ovr', average=None)
+      print(auc)
+
+      #plt.figure()
 
       # iterate over all classes
-      fpr = tpr = thresh = roc_auc = dict()
-      for idx, (cat, vals) in enumerate(features.items()):
+      #fpr = tpr = thresh = roc_auc = dict()
+      #for idx, (cat, vals) in enumerate(features.items()):
 
         # compute pairwise similarity of all features in one class
         #sim_self = cosine_similarity(vals.cpu())
@@ -166,10 +224,10 @@ def main():
         #max_sim_self = sim_self.max(axis=1)
 
         # filter out the current class
-        features_other = {k:v for k,v in features.items() if k != cat}
+        #features_other = {k:v for k,v in features.items() if k != cat}
 
         # concat all other features in one tensor
-        vals_other = torch.cat(tuple(features_other.values()), dim=0) # combine features into one tensor
+        #vals_other = torch.cat(tuple(features_other.values()), dim=0) # combine features into one tensor
 
         # compute pairwise similarity with all other classes
         #sim_other = cosine_similarity(vals.cpu(), vals_other.cpu())
@@ -188,17 +246,17 @@ def main():
         #plt.plot(fpr[idx], tpr[idx], label=F'Class {idx} vs Rest')
         #break
 
-        vals_magnitude = torch.linalg.vector_norm(vals, ord=2, dim=1)
-        vals_magnitude_other = torch.linalg.vector_norm(vals_other, ord=2, dim=1)
-        print(vals_magnitude.cpu().reshape(1,-1))
-        print(vals_magnitude_other.cpu().reshape(1,-1))
+        #vals_magnitude = torch.linalg.vector_norm(vals, ord=2, dim=1)
+        #vals_magnitude_other = torch.linalg.vector_norm(vals_other, ord=2, dim=1)
+        #print(vals_magnitude.cpu().reshape(1,-1))
+        #print(vals_magnitude_other.cpu().reshape(1,-1))
 
-        bins = numpy.linspace(min(vals_magnitude_other.cpu()), max(vals_magnitude_other.cpu()), 10)
+        #bins = numpy.linspace(min(vals_magnitude_other.cpu()), max(vals_magnitude_other.cpu()), 10)
 
-        plt.figure()
-        plt.hist(vals_magnitude.cpu().reshape(1,-1), bins, histtype='step', fill=False, label='class')
-        plt.hist(vals_magnitude_other.cpu().reshape(1,-1), bins, histtype='step', fill=False, label='other')
-        plt.savefig(F"hist{idx}.png")
+        #plt.figure()
+        #plt.hist(vals_magnitude.cpu().reshape(1,-1), bins, histtype='step', fill=False, label='class')
+        #plt.hist(vals_magnitude_other.cpu().reshape(1,-1), bins, histtype='step', fill=False, label='other')
+        #plt.savefig(F"hist{idx}.png")
 
         
 

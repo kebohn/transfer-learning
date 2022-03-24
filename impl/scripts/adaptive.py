@@ -101,7 +101,7 @@ def main():
       adaptive_train_features = utilities.extract(adaptive_features_model, f_train_loader)
 
       # save features
-      torch.save(adaptive_train_features, F'{parsed_args.results}features_adaptive_size_{current_size}.pt')
+      torch.save(adaptive_train_features, F'{parsed_args.results}features_train_adaptive_size_{current_size}.pt')
 
       # run prediction
       res[current_size] = utilities.predict(

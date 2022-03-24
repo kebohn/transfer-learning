@@ -39,7 +39,13 @@ def main():
 
   # load test data
   test_data = data.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
-  test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=1, shuffle=False) 
+  test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=1, shuffle=False)
+
+  test_features = utilities.extract(model, test_loader)
+
+  # handle test features like a dataset
+  test_feature_data = data.FeatureDataset(test_features)
+  test_feature_loader = torch.utils.data.DataLoader(dataset=test_feature_data, batch_size=1, shuffle=False)
 
   # increase current size per category by step_size after every loop
   while(current_size <= parsed_args.max_size):
@@ -63,7 +69,7 @@ def main():
         model=model,
         params=parsed_args,
         features=features,
-        test_loader=test_loader
+        test_loader=test_feature_loader
       )
     current_size += parsed_args.step
    

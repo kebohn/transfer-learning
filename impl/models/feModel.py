@@ -21,9 +21,9 @@ class FEModel(models.BaseModel):
 
   def extract(self, img):
     with torch.no_grad(): # no training
-        img = img.to(self.device) # save on GPU
-        feature = self.model(img) # get model output
-        return feature.squeeze() # remove unecessary dimensions
+      img = img.to(self.device) # save on GPU
+      feature = self.model(img) # get model output
+      return feature.squeeze() # remove unecessary dimensions
   
 
   def normalize_train(self, features):
@@ -73,7 +73,7 @@ class FEModel(models.BaseModel):
       if (len(numpy.where(occurence_count==occurence_count.max())) == 1 and params.k > 1): # check if a definitive winner has been found
         best_cat = labels[occurence_count.argmax()]
         
-    return best_cat
+    return best_cat, min_distance
 
   
   def fit(self):
