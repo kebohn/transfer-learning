@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-from random import sample
 import sys
+
 sys.path.append("..") # append the path of the parent directory
 
 import argparse
@@ -12,8 +12,8 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import roc_curve, auc, roc_auc_score
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import label_binarize
+from sklearn.multiclass import OneVsRestClassifier
 import utilities
-import models
 
 vis = {} # dict stores all layer outputs
 
@@ -95,11 +95,11 @@ def save_roc_curve(name, fpr, tpr, roc_auc):
   plt.figure()
   lw = 2
   plt.plot(
-      fpr[2],
-      tpr[2],
+      fpr,
+      tpr,
       color="darkorange",
       lw=lw,
-      label=F"ROC curve (area = {roc_auc[2]:.2f})",
+      label=F"ROC curve (area = {roc_auc:.2f})",
   )
   plt.plot([0, 1], [0, 1], color="navy", lw=lw, linestyle="--")
   plt.xlim([0.0, 1.0])
@@ -108,9 +108,9 @@ def save_roc_curve(name, fpr, tpr, roc_auc):
   plt.ylabel("True Positive Rate")
   plt.title("Receiver operating characteristic example")
   plt.legend(loc="lower right")
-  plt.savefig(F"{name}.png")
+  plt.savefig(name)
   plt.close()
- 
+
 
 def normalize_features(features):
   vals = torch.cat(tuple(features.values()), dim=0) # combine features into one tensor
@@ -137,7 +137,7 @@ def main():
 
   if parsed_args.features is not None:
     features = torch.load(parsed_args.features)
-    if  parsed_args.dm:
+    if parsed_args.dm:
       
       f_dim = (list(features.values())[0]).size(1) # get feature dimension (retrieved from first element)
       num_categories = len(features.keys()) # get number of categories
@@ -160,8 +160,10 @@ def main():
 
       # visualize pca with coloring of correct class
       save_scatter_plot(features, pca_proj, num_categories, 'pca')
+      
     if parsed_args.roc:
       features_test = torch.load(parsed_args.features_test)
+
       y_test = []
       for ctn, (_, val) in enumerate(features_test.items()):
         key_list = numpy.repeat(ctn, val.size(0)) # add the same amount of category label to list as samples
@@ -169,26 +171,23 @@ def main():
 
       # one hot encoding of test labels
       y = label_binarize(y_test, classes=list(set(y_test)))
-      
-      # normalize all features
-      features_test_norm = normalize_features(features_test)
 
       # combine features into one tensor
-      features_test_norm_tensor = torch.cat(tuple(features_test_norm.values()), dim=0)
+      features_test_tensor = torch.cat(tuple(features_test.values()), dim=0)
 
       # compute cosine similarity matrix
-      sim = cosine_similarity(features_test_norm_tensor.cpu())
-
-      # create probabilty score matrix for each sample
-      sim_proba = numpy.zeros((y.shape[0], y.shape[1]))
+      sim = cosine_similarity(features_test_tensor.cpu())
 
       # ignore the similarity values on the diagonal because they will always be 1
       numpy.fill_diagonal(sim, 0.0)
+      
+      # create probabilty score matrix for each sample
+      sim_proba = numpy.zeros((y.shape[0], y.shape[1]))
 
       current_pos = 0
 
       # iterate over each class
-      for idx, (cat, val) in enumerate(features_test_norm.items()):
+      for idx, (cat, val) in enumerate(features_test.items()):
         
         # get only similarity scores for one class
         sim_cat = sim[:, current_pos:(current_pos + val.size(0))]
@@ -196,55 +195,51 @@ def main():
         # get maximum value per feature sample (row)
         max_sim_cat = numpy.max(sim_cat, axis=1)
 
-        print(max_sim_cat.shape)
-
-        # add the computed maximum similarity scores to already initialized probalibity matrix
+        # add the computed maximum similarity scores to already initialized probalibity matrix per sample and per current class
         sim_proba[:, idx] = max_sim_cat
 
-        # increase current pos
+        # increase current pos by number of features of the current class
         current_pos += val.size(0)
 
       # apply softmax on each row such that we have a probability for each class that sums up to 1
-      sim_proba = numpy.apply_along_axis(softmax, 1, sim_proba)
-      print(sim_proba.shape)
-      print(y.shape)
+      sim_proba_softmax = numpy.apply_along_axis(softmax, 1, sim_proba)
 
-      auc = roc_auc_score(y, sim_proba, multi_class='ovr', average=None)
-      print(auc)
+      auc_score_weighted = roc_auc_score(y, sim_proba_softmax, multi_class='ovr', average='weighted')
+      print(auc_score_weighted)
 
-      #plt.figure()
+      # plot roc curve
+      fpr = tpr = roc_auc = dict()
 
-      # iterate over all classes
-      #fpr = tpr = thresh = roc_auc = dict()
-      #for idx, (cat, vals) in enumerate(features.items()):
+      # init binary probability values - will be overwritten after each class
+      binary_proba = numpy.zeros((sim_proba.shape[0], 2))
 
-        # compute pairwise similarity of all features in one class
-        #sim_self = cosine_similarity(vals.cpu())
+      # iterate over each class
+      for i in range(y.shape[1]):
 
-        #max_sim_self = sim_self.max(axis=1)
+        # extract probability of current class
+        binary_proba[:, 0] = sim_proba[:, i]
 
-        # filter out the current class
-        #features_other = {k:v for k,v in features.items() if k != cat}
+        # combine the remaining rest classes
+        lower_rest = sim_proba[:, :i]
+        upper_rest = sim_proba[:, i+1:]
+        rest = numpy.concatenate((lower_rest, upper_rest), axis=1)
 
-        # concat all other features in one tensor
-        #vals_other = torch.cat(tuple(features_other.values()), dim=0) # combine features into one tensor
+        # compute max probability of rest classes per sample
+        binary_proba[:, 1] = numpy.max(rest, axis=1)
 
-        # compute pairwise similarity with all other classes
-        #sim_other = cosine_similarity(vals.cpu(), vals_other.cpu())
+        print(binary_proba)
 
-        #max_sim_other = sim_other.max(axis=1) # retrieve the largest distance per positive sample
-        #sim_matrix = cosine_similarity(vals_test.cpu(), vals.cpu())
+        # apply softmax on each row such that we have a probability for the pos and neg class that sums up to 1
+        #sim_proba_softmax_ovr = numpy.apply_along_axis(softmax, 1, binary_proba)
 
-        #max_dist = sim_matrix.max(axis=1) # retrieve the largest distance per test sample
+        # compute false positive rate and true positive rate for each class
+        fpr[i], tpr[i], _ = roc_curve(y[:,i], binary_proba[:,0])
 
-        #print(max_dist)
+        # compute area under the curve for each class
+        roc_auc[i] = auc(fpr[i], tpr[i])
+        print(roc_auc[i])
 
-        # perfom roc scheme
-        #fpr[idx], tpr[idx], thresh[idx] = roc_curve(y[:, idx], max_dist)
-        #roc_auc[idx] = auc(fpr[idx], tpr[idx])
-        # plotting    
-        #plt.plot(fpr[idx], tpr[idx], label=F'Class {idx} vs Rest')
-        #break
+        save_roc_curve(F'roc_class_{i}.png', fpr[i], tpr[i], roc_auc[i])
 
         #vals_magnitude = torch.linalg.vector_norm(vals, ord=2, dim=1)
         #vals_magnitude_other = torch.linalg.vector_norm(vals_other, ord=2, dim=1)
@@ -257,18 +252,6 @@ def main():
         #plt.hist(vals_magnitude.cpu().reshape(1,-1), bins, histtype='step', fill=False, label='class')
         #plt.hist(vals_magnitude_other.cpu().reshape(1,-1), bins, histtype='step', fill=False, label='other')
         #plt.savefig(F"hist{idx}.png")
-
-        
-
-      #plt.plot([0, 1], [0, 1], color="navy",  linestyle="--")
-      #plt.xlim([0.0, 1.0])
-      #plt.ylim([0.0, 1.05])
-      #plt.title('Multiclass ROC curve')
-      #plt.xlabel('False Positive Rate')
-      #plt.ylabel('True Positive rate')
-      #plt.legend(loc='best')
-      #plt.savefig('Multiclass ROC', dpi=300)
-      #plt.close()
 
 
   else:
