@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import time
 import numpy
 import utilities
-
+import models
 
 
 def train(
@@ -26,14 +26,15 @@ def train(
   # define running arrays
   valid_loss = []
   valid_acc = []
+  valid_auc = []
   train_loss = []
   train_acc = []
   num_correct = 0
   num_samples = 0
 
-  # early stopping: when the validation error in the last 10 epochs does not change we quit training
+  # early stopping: when the validation error in the last n epochs does not change we quit training
   es_counter = 0
-  es_threshold = 10
+  es_threshold = 20
 
   # train network
   print("Learning Model...")
@@ -110,11 +111,26 @@ def train(
     valid_loss.append(current_valid_loss)
     valid_acc.append(num_correct / num_samples)
     print(F'Validation Loss: {valid_loss[-1]:.2f} | Validation Accuracy: {valid_acc[-1]:.2f}')
-  
-    # early stopping
-    if len(valid_loss) >= 2 and parsed_args.early_stop:
-      if abs(valid_loss[-2] - current_loss) <= 1e-2 or current_valid_loss > valid_loss[-2]:
-        es_counter += 1
+
+    if parsed_args.early_stop:
+
+      if parsed_args.auc:
+
+        # define feature extraction model for validation set
+        fe_model = models.FEModel(adapter_model, utilities.get_device())
+
+        # get all validation features
+        valid_features =  utilities.extract(fe_model, v_loader)
+
+        # compute area under the curve for validation features
+        valid_auc.append(1.0 - utilities.calculate_auc(valid_features))
+
+        es_counter = incease_early_stop_counter(valid_auc, es_counter)
+
+      else:
+        es_counter = incease_early_stop_counter(valid_loss, es_counter)
+
+      print(F"Current early stopping threshold counter {es_counter}/{es_threshold}")
 
       if es_counter == es_threshold:
         print("Model starts to overfit, training stopped")
@@ -165,6 +181,15 @@ def test(model, test_loader):
   res["total_acc"] = acc
     
   return res
+
+
+def incease_early_stop_counter(args_arr, es_counter):
+  print(F"Current validation early stopping metric: {args_arr[-1]:.4f}")
+  new_counter = es_counter
+  if len(args_arr) >= 2:
+    if args_arr[-2] - args_arr[-1] <= 1e-6:
+      new_counter += 1
+  return new_counter
 
 
 def save_model_plot(x, y, x_label, y_label, title):

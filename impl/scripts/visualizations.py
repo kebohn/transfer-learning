@@ -204,54 +204,65 @@ def main():
       # apply softmax on each row such that we have a probability for each class that sums up to 1
       sim_proba_softmax = numpy.apply_along_axis(softmax, 1, sim_proba)
 
+
       auc_score_weighted = roc_auc_score(y, sim_proba_softmax, multi_class='ovr', average='weighted')
       print(auc_score_weighted)
 
       # plot roc curve
       fpr = tpr = roc_auc = dict()
 
+
+
+
+
+
       # init binary probability values - will be overwritten after each class
-      binary_proba = numpy.zeros((sim_proba.shape[0], 2))
+      binary_proba = numpy.zeros((sim_proba_softmax.shape[0], 2))
 
       # iterate over each class
       for i in range(y.shape[1]):
 
+
+
         # extract probability of current class
-        binary_proba[:, 0] = sim_proba[:, i]
+        binary_proba[:, 0] = sim_proba_softmax[:, i]
 
         # combine the remaining rest classes
-        lower_rest = sim_proba[:, :i]
-        upper_rest = sim_proba[:, i+1:]
+        lower_rest = sim_proba_softmax[:, :i]
+        upper_rest = sim_proba_softmax[:, i+1:]
         rest = numpy.concatenate((lower_rest, upper_rest), axis=1)
 
         # compute max probability of rest classes per sample
-        binary_proba[:, 1] = numpy.max(rest, axis=1)
+        binary_proba[:, 1] = numpy.sum(rest, axis=1)
 
-        print(binary_proba)
+  
+
+      
 
         # apply softmax on each row such that we have a probability for the pos and neg class that sums up to 1
-        #sim_proba_softmax_ovr = numpy.apply_along_axis(softmax, 1, binary_proba)
+        sim_proba_softmax_ovr = numpy.apply_along_axis(softmax, 1, binary_proba)
 
         # compute false positive rate and true positive rate for each class
-        fpr[i], tpr[i], _ = roc_curve(y[:,i], binary_proba[:,0])
+        fpr[i], tpr[i], _ = roc_curve(y[:,i], sim_proba_softmax_ovr[:, 0])
+
+
 
         # compute area under the curve for each class
         roc_auc[i] = auc(fpr[i], tpr[i])
-        print(roc_auc[i])
 
         save_roc_curve(F'roc_class_{i}.png', fpr[i], tpr[i], roc_auc[i])
 
-        #vals_magnitude = torch.linalg.vector_norm(vals, ord=2, dim=1)
-        #vals_magnitude_other = torch.linalg.vector_norm(vals_other, ord=2, dim=1)
-        #print(vals_magnitude.cpu().reshape(1,-1))
-        #print(vals_magnitude_other.cpu().reshape(1,-1))
+      #vals_magnitude = torch.linalg.vector_norm(vals, ord=2, dim=1)
+      #vals_magnitude_other = torch.linalg.vector_norm(vals_other, ord=2, dim=1)
+      #print(vals_magnitude.cpu().reshape(1,-1))
+      #print(vals_magnitude_other.cpu().reshape(1,-1))
 
-        #bins = numpy.linspace(min(vals_magnitude_other.cpu()), max(vals_magnitude_other.cpu()), 10)
+      #bins = numpy.linspace(min(vals_magnitude_other.cpu()), max(vals_magnitude_other.cpu()), 10)
 
-        #plt.figure()
-        #plt.hist(vals_magnitude.cpu().reshape(1,-1), bins, histtype='step', fill=False, label='class')
-        #plt.hist(vals_magnitude_other.cpu().reshape(1,-1), bins, histtype='step', fill=False, label='other')
-        #plt.savefig(F"hist{idx}.png")
+      #plt.figure()
+      #plt.hist(vals_magnitude.cpu().reshape(1,-1), bins, histtype='step', fill=False, label='class')
+      #plt.hist(vals_magnitude_other.cpu().reshape(1,-1), bins, histtype='step', fill=False, label='other')
+      #plt.savefig(F"hist{idx}.png")
 
 
   else:

@@ -27,6 +27,7 @@ def parse_arguments():
   parser.add_argument('--max-size', type=int, dest='max_size', default=5, help='Define maximum samples per class (Default: k=5)')
   parser.add_argument('--unbalanced', dest='unbalanced', action='store_true', help='Define if dataset is unbalanced (Default: false)')
   parser.add_argument('--early-stop', dest='early_stop', action='store_true', help='Define if training should be stopped when plateau is reached (Default: false)')
+  parser.add_argument('--auc', dest='auc', action='store_true', help='Define if training should be stopped when validation auc is not imporoving (Default: false)')
   parser.add_argument('--fine-tune', dest='fine_tune', action='store_true', help='Define if the whole model should be fine-tuned (Default: false)')
   return parser.parse_args()
 
