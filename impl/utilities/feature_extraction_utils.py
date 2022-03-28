@@ -7,6 +7,10 @@ import models
 import data
 
 
+def softmax(x):
+  return numpy.exp(x) / sum(numpy.exp(x))
+
+
 def prepare_features_for_training(pre_trained_model, train_loader, features_valid):
  
   # extract training features from training data

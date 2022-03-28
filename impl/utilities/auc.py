@@ -3,10 +3,8 @@ import numpy
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import label_binarize
+from .feature_extraction_utils import softmax
 
-
-def softmax(x):
-  return numpy.exp(x) / sum(numpy.exp(x))
 
 def calculate_auc(features):
     y_test = []

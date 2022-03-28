@@ -6,18 +6,14 @@ sys.path.append("..") # append the path of the parent directory
 
 import argparse
 import torch
+import torchvision
 import numpy
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
-from sklearn.metrics import roc_curve, auc, roc_auc_score
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import label_binarize
-from sklearn.multiclass import OneVsRestClassifier
 import utilities
-import models
-import collections
 import data
+import models
 
 vis = {} # dict stores all layer outputs
 
@@ -32,6 +28,7 @@ def parse_arguments():
   parser.add_argument('--roc', dest='roc', action='store_true', help='Visualize RoC graph on features (Default: false)')
   parser.add_argument('--features', type=utilities.dir_path, help='Directory where features are stored (absolute dir)')
   parser.add_argument('--features_test', type=utilities.dir_path, help='Directory where test features are stored (absolute dir)')
+  parser.add_argument('--d_test', type=utilities.dir_path, help='Directory where test data are stored (absolute dir)')
   return parser.parse_args()
 
 
@@ -111,9 +108,6 @@ def normalize(features, norm):
   # use same norm from training features
   return torch.div(features, norm)
 
-def softmax(x):
-  return numpy.exp(x) / sum(numpy.exp(x))
-
 
 def main():
   parsed_args = parse_arguments()
@@ -145,22 +139,17 @@ def main():
       save_scatter_plot(features, pca_proj, num_categories, 'pca')
       
     if parsed_args.roc:
-
+      model = None
       features_test = torch.load(parsed_args.features_test)
-      utilities.perform_roc("svm", features, features_test)
-
-      #vals_magnitude = torch.linalg.vector_norm(vals, ord=2, dim=1)
-      #vals_magnitude_other = torch.linalg.vector_norm(vals_other, ord=2, dim=1)
-      #print(vals_magnitude.cpu().reshape(1,-1))
-      #print(vals_magnitude_other.cpu().reshape(1,-1))
-
-      #bins = numpy.linspace(min(vals_magnitude_other.cpu()), max(vals_magnitude_other.cpu()), 10)
-
-      #plt.figure()
-      #plt.hist(vals_magnitude.cpu().reshape(1,-1), bins, histtype='step', fill=False, label='class')
-      #plt.hist(vals_magnitude_other.cpu().reshape(1,-1), bins, histtype='step', fill=False, label='other')
-      #plt.savefig(F"hist{idx}.png")
-
+      if parsed_args.d_test is not None:
+        # treat inital image data as features
+        features_test = test_data = data.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
+        model = torchvision.models.resnet50(pretrained=True)
+      
+      model = models.AdaptiveModel(num_categories=y.shape[1])
+      model.load_state_dict(torch.load(model))
+      model.eval()
+      utilities.perform_roc("pretrained", features, features_test, model)
 
   else:
     # load test data

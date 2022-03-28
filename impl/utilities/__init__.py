@@ -6,3 +6,4 @@ from .cuda import *
 from .colors import colors
 from .auc import calculate_auc
 from .roc import *
+from .hist import *
