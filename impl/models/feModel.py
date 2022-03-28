@@ -11,12 +11,13 @@ class FEModel(models.BaseModel):
     self.tol = 1e-12 # tolerance
 
     # replace last fully connected layer from model with Identity Layer
-    modules = list(self.model.children())
-    modules[-1] = models.IdentityModel()
-    self.model = torch.nn.Sequential(*modules)
+    if model is not None:
+      modules = list(self.model.children())
+      modules[-1] = models.IdentityModel()
+      self.model = torch.nn.Sequential(*modules)
 
-    self.model.eval() # evaluation mode
-    self.model.to(device) # save on GPU
+      self.model.eval() # evaluation mode
+      self.model.to(device) # save on GPU
 
 
   def extract(self, img):
@@ -43,7 +44,7 @@ class FEModel(models.BaseModel):
 
   def normalize(self, features):
     # use same norm from training features
-    return torch.div(features, self.norm)
+    return torch.div(features.cpu(), self.norm.cpu())
 
 
   def predict(self, X_test, features, distances, labels, params):

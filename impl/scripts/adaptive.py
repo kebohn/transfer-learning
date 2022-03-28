@@ -59,7 +59,6 @@ def main():
   features_test = utilities.extract(pre_trained_model, test_loader)
   #torch.save(features_valid, F'{parsed_args.results}features_valid.pt')
 
-
   # increase current size per category by step_size after every loop
   while(current_size <= parsed_args.max_size):
     print(F'Using {current_size} images per category...')

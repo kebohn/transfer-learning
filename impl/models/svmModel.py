@@ -4,9 +4,9 @@ import models
 
 
 class SVMModel(models.BaseModel):
-  def __init__(self, device):
+  def __init__(self, device, probability=False):
     super().__init__(device)
-    self.model = svm.SVC(decision_function_shape='ovr', max_iter=1000)
+    self.model = svm.SVC(decision_function_shape='ovr', probability=probability, max_iter=1000)
     
 
   def extract(self):
