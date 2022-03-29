@@ -85,6 +85,8 @@ def predict(model, params, features=[], test_loader=[]):
   res = {}
   res["cat_acc"] = []
   res["categories"] = []
+  res["labels"] = []
+  res["predictions"] = []
  
   if params.neighbor:
     max_number_features = max([len(f) for f in features.values()]) # variable with maximum number of features for one category
@@ -107,6 +109,9 @@ def predict(model, params, features=[], test_loader=[]):
     # convert tuple to string
     test_name = ''.join(test_name)
 
+    # add test label to res array
+    res["labels"].extend(test_name)
+
     # extract test feature from model
     X_test = model.extract(test_data)
 
@@ -115,6 +120,9 @@ def predict(model, params, features=[], test_loader=[]):
       y_test = svmModel.predict(X_test_norm.cpu().reshape(1, -1))
     else:
       y_test, _ = model.predict(X_test, features, distances, labels, params)
+
+    # add test prediction to res array
+    res["predictions"].extend(y_test) 
 
     categories[test_name][0] += y_test == test_name # we only increase when category has been correctly identified
     categories[test_name][1] += 1 # always increase after each iteration s.t. we have the total number

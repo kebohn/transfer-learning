@@ -22,3 +22,9 @@ def save_json_file(name, content):
   with open(F"{name}.json", 'w') as fp:
         json.dump(content, fp,  indent=4)
 
+
+def load_json_file(path):
+  f = open(path, "r")
+  data = json.loads(f.read())
+  f.close()
+  return data

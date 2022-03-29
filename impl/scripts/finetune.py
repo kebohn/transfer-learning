@@ -33,7 +33,7 @@ def main():
   
   # hyperparameters
   epochs = 100
-  lr = 0.001
+  lr = 0.0001
   momentum = 0.9
   current_size = parsed_args.step
   res = {}
@@ -49,17 +49,18 @@ def main():
   valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=10, shuffle=False, num_workers=8)
   test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=10, shuffle=False, num_workers=8)
 
-  # prepare model for fine-tuning
-  model = models.PretrainedModel(model=res50_model, num_categories=test_data.get_categories())
-  model.to(utilities.get_device())
 
-  # set gradients to true
-  for param in model.parameters():
-    param.requires_grad = True
-  
   # increase current size per category by step_size after every loop
   while(current_size <= parsed_args.max_size):
     print(F'Using {current_size} images per category...')
+
+    # prepare model for fine-tuning
+    model = models.PretrainedModel(model=res50_model, num_categories=test_data.get_categories())
+    model.to(utilities.get_device())
+
+    # set gradients to true
+    for param in model.parameters():
+      param.requires_grad = True
 
     # load data with data augmentation
     train_data = data.CustomImageDataset('data.csv', parsed_args.d, utilities.train_transforms(), current_size)

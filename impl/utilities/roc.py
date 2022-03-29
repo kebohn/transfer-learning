@@ -179,6 +179,8 @@ def perform_roc(method, features, features_test, model=None):
       tpr["macro"] = mean_tpr
       roc_auc["macro"] = makro_auc
 
+      # TODO: compute weighted scores by multiplying each value by number of occurences and then divide by total number, because of unbalanced classes!!
+
       # convert ndarray to list
       fpr = {k:v.tolist() for k, v in fpr.items()}
       tpr = {k:v.tolist() for k, v in tpr.items()}

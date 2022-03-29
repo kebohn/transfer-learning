@@ -11,6 +11,7 @@ import numpy
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
+from sklearn.metrics import confusion_matrix
 import utilities
 import data
 import models
@@ -29,6 +30,7 @@ def parse_arguments():
   parser.add_argument('--features', type=utilities.dir_path, help='Directory where features are stored (absolute dir)')
   parser.add_argument('--features_test', type=utilities.dir_path, help='Directory where test features are stored (absolute dir)')
   parser.add_argument('--d_test', type=utilities.dir_path, help='Directory where test data are stored (absolute dir)')
+  parser.add_argument('--confusion', type=utilities.dir_path, help='Directory where data for confusion matrix is stored (absolute dir)')
   return parser.parse_args()
 
 
@@ -150,6 +152,43 @@ def main():
       model.load_state_dict(torch.load(model))
       model.eval()
       utilities.perform_roc("pretrained", features, features_test, model)
+
+    if parsed_args.confusion is not None:
+      
+      res_data = utilities.load_json_file()
+
+      # create confusion matrix
+      labels = set(res_data["labels"])
+      confusion = confusion_matrix(res_data["labels"], res_data["predictions"], labels=labels)
+
+      # transpose matrix because we want the rows to be the predicted class
+      confusion = confusion.T
+      print(confusion)
+
+      # test
+      confusion = numpy.random.rand((67,67))
+
+      # plot confusion matrix vis
+      fig, ax = plt.subplots()
+      im = ax.imshow(confusion)
+
+      # Show all ticks and label them with the respective list entries
+      ax.set_xticks(numpy.arange(len(labels)), labels=labels)
+      ax.set_yticks(numpy.arange(len(labels)), labels=labels)
+
+      # Rotate the tick labels and set their alignment.
+      plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+              rotation_mode="anchor")
+
+      # Loop over data dimensions and create text annotations.
+      for i in range(len(labels)):
+        for j in range(len(labels)):
+          text = ax.text(j, i, confusion[i, j], ha="center", va="center", color="w")
+
+      ax.set_title("Confusion Matrix")
+      fig.tight_layout()
+      plt.savefig("confusion_matrix.png")
+      plt.close()
 
   else:
     # load test data

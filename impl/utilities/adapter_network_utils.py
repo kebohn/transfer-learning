@@ -161,11 +161,14 @@ def train(
 def test(model, test_loader):
   print("Test model...")
   res = {}
+  y_test_arr = []
+  perdictions_arr = []
   num_correct = 0
   num_samples = 0
   model.eval()
   with torch.no_grad():
     for x, y, _ in test_loader:
+      y_test_arr.extend(y)
       x = x.to(utilities.get_device())
       y = y.to(utilities.get_device())
 
@@ -173,12 +176,15 @@ def test(model, test_loader):
       scores = model(x)
 
       _, predictions = scores.max(1)
+      perdictions_arr.extend(predictions)
       num_correct += predictions.eq(y).sum().item()
       num_samples += predictions.size(0)
         
   acc = num_correct / num_samples
   print(F'Test Accuracy: {acc:.2f}')
   res["total_acc"] = acc
+  res["labels"] = y_test_arr
+  res["predictions"] = perdictions_arr
     
   return res
 
