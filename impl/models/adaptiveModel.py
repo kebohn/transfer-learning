@@ -8,8 +8,8 @@ class AdaptiveModel(torch.nn.Module):
 		self.fc1 = torch.nn.Linear(in_features=2048, out_features=200, bias=True)
 		self.activation = torch.nn.Tanh()
 		self.dropout = torch.nn.Dropout(p=0.5)
-		self.fc2 = torch.nn.Linear(in_features=200, out_features=100, bias=True)
-		self.fc3 = torch.nn.Linear(in_features=100, out_features=num_categories, bias=True)
+		self.fc2 = torch.nn.Linear(in_features=self.fc1.out_features, out_features=100, bias=True)
+		self.fc3 = torch.nn.Linear(in_features=self.fc2.out_features, out_features=num_categories, bias=True)
 
 		
 	def forward(self, x):

@@ -28,36 +28,29 @@ def parse_arguments():
 
 def main():
   parsed_args = parse_arguments()
+  current_size = parsed_args.step
   res = {}
       
   # use Feature Extraction Model
   res50_model = torchvision.models.resnet50(pretrained=True) # load pretrained model resnet-50
   model = models.FEModel(model=res50_model, device=utilities.get_device())
 
-  # define current training size per category
-  current_size = parsed_args.step
-
   # load test data
   test_data = data.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
   test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=1, shuffle=False)
 
-  test_features = utilities.extract(model, test_loader)
-
-  # handle test features like a dataset
-  test_feature_data = data.FeatureDataset(test_features)
-  test_feature_loader = torch.utils.data.DataLoader(dataset=test_feature_data, batch_size=1, shuffle=False)
-
   # increase current size per category by step_size after every loop
   while(current_size <= parsed_args.max_size):
     print(F'Using {current_size} images per category...')
-    
+
     # load existing features
     if parsed_args.features:
       features = torch.load(F'{parsed_args.features}features_size_{current_size}.pt')
 
     # compute new features
     else:
-      # load data
+      
+      # load data without data augmentation
       train_data = data.CustomImageDataset('data.csv', parsed_args.d, utilities.test_transforms(), current_size)
       train_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size=10, shuffle=False, num_workers=5)
 
@@ -69,8 +62,9 @@ def main():
         model=model,
         params=parsed_args,
         features=features,
-        test_loader=test_feature_loader
+        test_loader=test_loader
       )
+    
     current_size += parsed_args.step
    
   # write result to a file

@@ -3,3 +3,4 @@ from .baseModel import BaseModel
 from .feModel import FEModel
 from .svmModel import SVMModel
 from .identityModel import IdentityModel
+from .pretrainedModel import PretrainedModel
