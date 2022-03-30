@@ -47,8 +47,7 @@ def main():
   test_data = data.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
 
   valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=10, shuffle=False, num_workers=8)
-  test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=10, shuffle=False, num_workers=8)
-
+  test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=1, shuffle=False)
 
   # increase current size per category by step_size after every loop
   while(current_size <= parsed_args.max_size):
@@ -92,22 +91,18 @@ def main():
         fe_model = models.FEModel(model=model, device=utilities.get_device())
 
         # extract features from training data
-        features = utilities.extract(model, train_loader)
+        features = utilities.extract(fe_model, train_loader)
         test_features = utilities.extract(fe_model, test_loader)
 
         # save train and test features
         torch.save(features, F'{parsed_args.results}features_train_size_{current_size}.pt')
         torch.save(test_features, F'{parsed_args.results}features_test_size_{current_size}.pt')
 
-        # handle test features like a dataset
-        test_feature_data = data.FeatureDataset(test_features)
-        test_feature_loader = torch.utils.data.DataLoader(dataset=test_feature_data, batch_size=1, shuffle=False)
-    
         res[current_size] = utilities.predict(
-            model=model,
+            model=fe_model,
             params=parsed_args,
             features=features,
-            test_loader=test_feature_loader
+            test_loader=test_loader
           )
 
     else:
