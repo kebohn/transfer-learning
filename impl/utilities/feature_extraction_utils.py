@@ -99,7 +99,7 @@ def predict(model, params, features=[], test_loader=[]):
     features_norm = model.normalize_train(features)
     for key, val in features_norm.items():
       y_train.extend(numpy.repeat(key, val.size()[0]))
-      tmp = numpy.split(val.cpu().numpy(), val.size()[0])
+      tmp = numpy.split(val.detach().cpu().numpy(), val.size()[0])
       X_train.extend([i.flatten() for i in tmp])
 
     svmModel.fit(X_train, y_train)
@@ -110,19 +110,19 @@ def predict(model, params, features=[], test_loader=[]):
     test_name = ''.join(test_name)
 
     # add test label to res array
-    res["labels"].extend(test_name)
+    res["labels"].append(test_name)
 
     # extract test feature from model
     X_test = model.extract(test_data)
 
     if params.svm:
       X_test_norm = model.normalize(X_test) # normalize test data with norm from training data
-      y_test = svmModel.predict(X_test_norm.cpu().reshape(1, -1))
+      y_test = svmModel.predict(X_test_norm.detach().cpu().reshape(1, -1))
     else:
       y_test, _ = model.predict(X_test, features, distances, labels, params)
 
     # add test prediction to res array
-    res["predictions"].extend(y_test) 
+    res["predictions"].append(y_test) 
 
     categories[test_name][0] += y_test == test_name # we only increase when category has been correctly identified
     categories[test_name][1] += 1 # always increase after each iteration s.t. we have the total number

@@ -168,7 +168,7 @@ def test(model, test_loader):
   model.eval()
   with torch.no_grad():
     for x, y, _ in test_loader:
-      y_test_arr.extend(y)
+      y_test_arr.extend(y.detach().cpu().tolist())
       x = x.to(utilities.get_device())
       y = y.to(utilities.get_device())
 
@@ -176,7 +176,7 @@ def test(model, test_loader):
       scores = model(x)
 
       _, predictions = scores.max(1)
-      perdictions_arr.extend(predictions)
+      perdictions_arr.extend(predictions.detach().cpu().tolist())
       num_correct += predictions.eq(y).sum().item()
       num_samples += predictions.size(0)
         

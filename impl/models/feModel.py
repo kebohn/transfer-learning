@@ -44,7 +44,7 @@ class FEModel(models.BaseModel):
 
   def normalize(self, features):
     # use same norm from training features
-    return torch.div(features.cpu(), self.norm.cpu())
+    return torch.div(features.detach().cpu(), self.norm.detach().cpu())
 
 
   def predict(self, X_test, features, distances, labels, params):
@@ -52,13 +52,13 @@ class FEModel(models.BaseModel):
     index = 0
     for predicted_cat, feature in features.items():
       if params.cosine or params.neighbor:
-        cosine_matrix = self.__cos_similarity(feature.cpu().numpy(), X_test.cpu().numpy().reshape(1, -1)) # compute cosine of all existing features
+        cosine_matrix = self.__cos_similarity(feature.detach().cpu().numpy(), X_test.detach().cpu().numpy().reshape(1, -1)) # compute cosine of all existing features
         dist = 1.0 - numpy.max(cosine_matrix) # take the maximum similarity value and transform it to similarity distance
         if params.neighbor:
           distances[index, :len(feature)] = cosine_matrix.reshape(len(feature)) # persist all computed distances, will be used for kNN algo
           labels.append(predicted_cat) # persist all categories, will be used for kNN algo
       elif params.mean:
-        dist = 1.0 - self.__cos_similarity(torch.mean(feature, 0).cpu().numpy().reshape(1, -1), X_test.cpu().numpy().reshape(1, -1))[0,0] # compute similarity distance
+        dist = 1.0 - self.__cos_similarity(torch.mean(feature, 0).detach().cpu().numpy().reshape(1, -1), X_test.detach().cpu().numpy().reshape(1, -1))[0,0] # compute similarity distance
       else:
         raise argparse.ArgumentTypeError('Metric not defined, use one of the following: (--mean, --cosine, --neighbor --svm)')
 

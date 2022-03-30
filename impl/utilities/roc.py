@@ -43,7 +43,7 @@ def perform_roc(method, features, features_test, model=None):
         y_test.extend(key_list) # add the current category label list to whole label list
 
       # one hot encoding of test labels
-      y = label_binarize(y_test, classes=list(set(y_test)))
+      y = label_binarize(y_test, classes=list(numpy.unique(numpy.array(y_test))))
 
       # define normalization
       feModel = models.FEModel(None, utilities.get_device())
@@ -58,7 +58,7 @@ def perform_roc(method, features, features_test, model=None):
         X_train = []
         for key, val in features_norm.items():
           y_train.extend(numpy.repeat(key, val.size()[0]))
-          tmp = numpy.split(val.cpu().numpy(), val.size()[0])
+          tmp = numpy.split(val.detach().cpu().numpy(), val.size()[0])
           X_train.extend([i.flatten() for i in tmp])
 
         svmModel.fit(X_train, y_train)
@@ -76,7 +76,7 @@ def perform_roc(method, features, features_test, model=None):
         features_test_tensor = torch.cat(tuple(features_test.values()), dim=0)
 
         # compute cosine similarity
-        sim = cosine_similarity(features_test_tensor.cpu(), features_tensor.cpu())
+        sim = cosine_similarity(features_test_tensor.detach().cpu(), features_tensor.detach().cpu())
 
         # create probabilty score matrix for each sample
         sim_proba = numpy.zeros(y.shape)
@@ -113,7 +113,7 @@ def perform_roc(method, features, features_test, model=None):
         features_test_tensor = torch.cat(tuple(features_test.values()), dim=0)
 
         # compute cosine similarity
-        sim = cosine_similarity(features_test_tensor.cpu(), features_mean_tensor.cpu())
+        sim = cosine_similarity(features_test_tensor.detach().cpu(), features_mean_tensor.detach().cpu())
 
         # apply softmax on each row such that we have a probability for each class that sums up to 1
         scores = numpy.apply_along_axis(utilities.softmax, 1, sim)

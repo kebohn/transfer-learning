@@ -18,7 +18,7 @@ class FeatureDataset(torch.utils.data.Dataset):
   def __getitem__(self, idx):
     name = self.names[idx] # retrieve name with idx because we have repeated the array we get the correct category name
     feature = self.values[idx, :] # retrieve feature tensor with idx because the tensor has been concatenated with all features
-    names_set = list(set(self.names)) # construct a unique list with all category names
+    names_set = list(numpy.unique(numpy.array(self.names))) # construct a unique list with all category names
     label = names_set.index(name) # retrieve the index of the correct class this is automatically the label because of the preserving order
     return feature, label, name
 
