@@ -15,7 +15,6 @@ class FEModel(models.BaseModel):
       modules = list(self.model.children())
       modules[-1] = models.IdentityModel()
       self.model = torch.nn.Sequential(*modules)
-
       self.model.eval() # evaluation mode
       self.model.to(device) # save on GPU
 

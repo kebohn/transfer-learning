@@ -34,7 +34,7 @@ def train(
 
   # early stopping: when the validation error in the last n epochs does not change we quit training
   es_counter = 0
-  es_threshold = 20
+  es_threshold = 30
 
   # train network
   print("Learning Model...")
@@ -47,10 +47,7 @@ def train(
 
     # retrieve train and valid feature loader
     if features_valid:
-      t_loader, v_loader, f_train = utilities.prepare_features_for_training(pre_trained_model, train_loader, features_valid)
-      
-      # save features
-      torch.save(f_train, F'{parsed_args.results}features_adaptive_size_{current_size}.pt')
+      t_loader, v_loader = utilities.prepare_features_for_training(pre_trained_model, train_loader, features_valid)
     else:
       t_loader, v_loader = train_loader, valid_loader
 

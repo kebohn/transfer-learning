@@ -27,6 +27,7 @@ def parse_arguments():
   parser.add_argument('--max-size', type=int, dest='max_size', default=5, help='Define maximum samples per class (Default: k=5)')
   parser.add_argument('--unbalanced', dest='unbalanced', action='store_true', help='Define if dataset is unbalanced (Default: false)')
   parser.add_argument('--early-stop', dest='early_stop', action='store_true', help='Define if training should be stopped when plateau is reached (Default: false)')
+  parser.add_argument('--auc', dest='auc', action='store_true', help='Area under the curve scheme for early stopping, if false validation loss will be used (Default: false)')
   return parser.parse_args()
 
 
@@ -55,7 +56,6 @@ def main():
   # extract test and validation data
   features_valid = utilities.extract(pre_trained_model, valid_loader)
   features_test = utilities.extract(pre_trained_model, test_loader)
-  #torch.save(features_valid, F'{parsed_args.results}features_valid.pt')
 
   # increase current size per category by step_size after every loop
   while(current_size <= parsed_args.max_size):
@@ -97,9 +97,12 @@ def main():
         
       # extract features from trained adaptive model
       adaptive_train_features = utilities.extract(adaptive_features_model, f_train_loader)
+      feature_test_loader_2 = torch.utils.data.DataLoader(dataset=feature_test_data, batch_size=10, shuffle=False)
+      adaptive_test_features = utilities.extract(adaptive_features_model, feature_test_loader_2)
 
       # save features
-      torch.save(adaptive_train_features, F'{parsed_args.results}features_train_adaptive_size_{current_size}.pt')
+      torch.save(adaptive_train_features, F'{parsed_args.results}features_train_size_{current_size}.pt')
+      torch.save(adaptive_test_features, F'{parsed_args.results}features_test_size_{current_size}.pt')
 
       # run prediction
       res[current_size] = utilities.predict(

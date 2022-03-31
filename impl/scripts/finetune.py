@@ -26,6 +26,7 @@ def parse_arguments():
   parser.add_argument('--max-size', type=int, dest='max_size', default=5, help='Define maximum samples per class (Default: k=5)')
   parser.add_argument('--unbalanced', dest='unbalanced', action='store_true', help='Define if dataset is unbalanced (Default: false)')
   parser.add_argument('--early-stop', dest='early_stop', action='store_true', help='Define if training should be stopped when plateau is reached (Default: false)')
+  parser.add_argument('--auc', dest='auc', action='store_true', help='Area under the curve scheme for early stopping, if false validation loss will be used (Default: false)')
   return parser.parse_args()
 
 def main():
@@ -33,14 +34,11 @@ def main():
   
   # hyperparameters
   epochs = 100
-  lr = 0.0001
+  lr = 0.00001
   momentum = 0.9
   current_size = parsed_args.step
   res = {}
       
-  # use Feature Extraction Model
-  res50_model = torchvision.models.resnet50(pretrained=True) # load pretrained model resnet-50
-
   # load test and validation data
   print("Prepare test and validation dataset...")
   valid_data = data.CustomImageDataset('validation.csv', parsed_args.d, utilities.test_transforms())
@@ -48,13 +46,19 @@ def main():
 
   valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=10, shuffle=False, num_workers=8)
   test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=1, shuffle=False)
+  test_loader_2 = torch.utils.data.DataLoader(dataset=test_data, batch_size=10, shuffle=False)
 
   # increase current size per category by step_size after every loop
   while(current_size <= parsed_args.max_size):
     print(F'Using {current_size} images per category...')
 
+    # use Feature Extraction Model
+    model = torchvision.models.resnet50(pretrained=True) # load pretrained model resnet-50
+
     # prepare model for fine-tuning
-    model = models.PretrainedModel(model=res50_model, num_categories=test_data.get_categories())
+    model.fc = torch.nn.Sequential(
+      torch.nn.Linear(2048, test_data.get_categories())
+    )
     model.to(utilities.get_device())
 
     # set gradients to true
@@ -92,7 +96,7 @@ def main():
 
         # extract features from training data
         features = utilities.extract(fe_model, train_loader)
-        test_features = utilities.extract(fe_model, test_loader)
+        test_features = utilities.extract(fe_model, test_loader_2)
 
         # save train and test features
         torch.save(features, F'{parsed_args.results}features_train_size_{current_size}.pt')

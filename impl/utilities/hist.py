@@ -15,13 +15,15 @@ def save_feature_magnitude_hist(features):
 
     # construct one vs rest magnitudes
     feature_magnitudes_self = feature_magnitudes[cat].detach().cpu().numpy()
-    feature_magnitudes_other = {k:v.detach().cpu().numpy() for k, v in feature_magnitudes.items() if k != cat}
+    feature_magnitudes_other = {k:v for k, v in feature_magnitudes.items() if k != cat}
 
     # combine all other magintues in one array
-    feature_magnitudes_other = numpy.array(list(feature_magnitudes_other.values())).flatten()
+    feature_magnitudes_other = torch.cat(tuple(feature_magnitudes_other.values()), dim=0).detach().cpu().numpy()
 
     plt.figure()
     plt.hist(feature_magnitudes_self, bins, histtype='step', fill=False, label='class')
     plt.hist(feature_magnitudes_other, bins, histtype='step', fill=False, label='other')
+    plt.xlabel("Feature Vector Magnitude")
+    plt.title("Feature Vector Magnitude Histogram")
     plt.savefig(F"hist{idx}.png")
     plt.close()

@@ -150,10 +150,10 @@ def main():
         features_test = test_data = data.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
         model = torchvision.models.resnet50(pretrained=True)
       
-      model = models.AdaptiveModel(num_categories=y.shape[1])
-      model.load_state_dict(torch.load(model))
-      model.eval()
-      utilities.perform_roc("pretrained", features, features_test, model)
+      # model = models.AdaptiveModel(num_categories=len(list(features_test.keys())))
+      # model.load_state_dict(torch.load(model))
+      # model.eval()
+      utilities.perform_roc("cosine", features, features_test, model)
 
     if parsed_args.hist:
       utilities.save_feature_magnitude_hist(features)
