@@ -1,51 +1,63 @@
 import torch
 import numpy
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import label_binarize
-from .feature_extraction_utils import softmax
+from sklearn import metrics
+import matplotlib.pyplot as plt
 
 
-def calculate_auc(features):
-    y_test = []
-    for ctn, (_, val) in enumerate(features.items()):
-        key_list = numpy.repeat(ctn, val.size(0)) # add the same amount of category label to list as samples
-        y_test.extend(key_list) # add the current category label list to whole label list
+def calculate_auc(features, test_features, equal=False):
 
-    # one hot encoding of test labels
-    y = label_binarize(y_test, classes=list(set(y_test)))
+  # combine features into one tensor
+  features_tensor = torch.cat(tuple(features.values()), dim=0)
+  features_test_tensor = torch.cat(tuple(test_features.values()), dim=0)
 
-    # combine features into one tensor
-    features_tensor = torch.cat(tuple(features.values()), dim=0)
+  # compute cosine similarity matrix
+  sim = metrics.pairwise.cosine_similarity(features_test_tensor.detach().cpu(), features_tensor.detach().cpu())
 
-    # compute cosine similarity matrix
-    sim = cosine_similarity(features_tensor.cpu())
-
-    # ignore the similarity values on the diagonal because they will always be 1
+  # ignore the similarity values on the diagonal because they will always be 1 in case we compare the features with themselves
+  if equal:
     numpy.fill_diagonal(sim, 0.0)
-    
-    # create probabilty score matrix for each sample
-    sim_proba = numpy.zeros((y.shape[0], y.shape[1]))
 
-    current_pos = 0
+  # counter variables
+  current_pos = 0
+  current_pos_test = 0
 
-    # iterate over each class
-    for idx, (cat, val) in enumerate(features.items()):
-    
-        # get only similarity scores for one class
-        sim_cat = sim[:, current_pos:(current_pos + val.size(0))]
+  # overall weighted auc score
+  weighted_auc = 0.0
 
-        # get maximum value per feature sample (row)
-        max_sim_cat = numpy.max(sim_cat, axis=1)
+  # init calculated maximum similarity scores for positive and negative class for each sample
+  y = numpy.zeros(sim.shape[0], dtype=int)
 
-        # add the computed maximum similarity scores to already initialized probalibity matrix per sample and per current class
-        sim_proba[:, idx] = max_sim_cat
+  # init calculated maximum similarity scores for positive and negative class 
+  max_vals = numpy.zeros((sim.shape[0], 2))
 
-        # increase current pos by number of features of the current class
-        current_pos += val.size(0)
+  # iterate over each class
+  for cat, val in test_features.items():
 
-    # apply softmax on each row such that we have a probability for each class that sums up to 1
-    sim_proba_softmax = numpy.apply_along_axis(softmax, 1, sim_proba)
+    end_pos_test = current_pos_test + val.size(0)
+    end_pos = current_pos + features[cat].size(0)
 
+    # define positive classes in samples
+    y[:] = 0
+    y[current_pos_test:end_pos_test] = 1
 
-    return roc_auc_score(y, sim_proba_softmax, multi_class='ovr', average='weighted')
+    # get only similarity scores for positive class
+    sim_pos = sim[:,current_pos:end_pos]
+
+    # get only similarity scores for negative class
+    sim_neg = numpy.concatenate((sim[:,:current_pos], sim[:,end_pos:]), axis=1)
+
+    # get maximum value positive class
+    max_vals[:,0] = numpy.max(sim_pos, axis=1)
+
+    # get maximum value negative class
+    max_vals[:,1] = numpy.max(sim_neg, axis=1)
+
+    # add auc score for current class to overall weighted score
+    weighted_auc += metrics.roc_auc_score(y, max_vals[:,0]) * val.size(0)
+
+    # increase current pos by number of features of the current class
+    current_pos_test = end_pos_test
+    current_pos = end_pos
+
+  # weighted auc in case of inbalanced classes
+  return weighted_auc / sim.shape[0]

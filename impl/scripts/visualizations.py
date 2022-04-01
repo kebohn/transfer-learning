@@ -28,6 +28,7 @@ def parse_arguments():
   parser.add_argument('--maps', dest='maps', action='store_true', help='Visualize feature maps of model (Default: false)')
   parser.add_argument('--dm', dest='dm', action='store_true', help='Apply dimensionality reduction (t-sne, pca) on features (Default: false)')
   parser.add_argument('--roc', dest='roc', action='store_true', help='Visualize RoC graph on features (Default: false)')
+  parser.add_argument('--auc', dest='auc', action='store_true', help='Visualize RoC graph on features (Default: false)')
   parser.add_argument('--hist', dest='hist', action='store_true', help='Visualize magintue graph on features OVR (Default: false)')
   parser.add_argument('--features', type=utilities.dir_path, help='Directory where features are stored (absolute dir)')
   parser.add_argument('--features_test', type=utilities.dir_path, help='Directory where test features are stored (absolute dir)')
@@ -116,47 +117,50 @@ def normalize(features, norm):
 def main():
   parsed_args = parse_arguments()
 
-  if parsed_args.features is not None:
-    features = torch.load(parsed_args.features)
-    if parsed_args.dm:
-      
-      f_dim = (list(features.values())[0]).size(1) # get feature dimension (retrieved from first element)
-      num_categories = len(features.keys()) # get number of categories
-      embeddings = torch.zeros((0, f_dim), dtype=torch.float32) # init embedding with calculated f dimension
-      for f in features.values():
-        # stack all features from every class into one embeddings tensor
-        embeddings = torch.cat((embeddings, f))
+  features = torch.load(parsed_args.features)
+  features_test = torch.load(parsed_args.features_test)
 
-      # invoke t-SNE on stacked feature embedding
-      tsne = TSNE(n_components=2, perplexity=40, init='pca', learning_rate='auto', verbose=1)
-      tsne_proj = tsne.fit_transform(embeddings)
+  if parsed_args.dm:
+    
+    f_dim = (list(features.values())[0]).size(1) # get feature dimension (retrieved from first element)
+    num_categories = len(features.keys()) # get number of categories
+    embeddings = torch.zeros((0, f_dim), dtype=torch.float32) # init embedding with calculated f dimension
+    for f in features.values():
+      # stack all features from every class into one embeddings tensor
+      embeddings = torch.cat((embeddings, f))
 
-      # visualize t-sne with coloring of correct class
-      save_scatter_plot(features, tsne_proj, num_categories, 'tsne')
+    # invoke t-SNE on stacked feature embedding
+    tsne = TSNE(n_components=2, perplexity=40, init='pca', learning_rate='auto', verbose=1)
+    tsne_proj = tsne.fit_transform(embeddings)
 
-      # invoke pca algo
-      pca = PCA(n_components=2)
-      pca_proj = pca.fit_transform(embeddings)
-      print(F'Variance ratio: {pca.explained_variance_ratio_}')
+    # visualize t-sne with coloring of correct class
+    save_scatter_plot(features, tsne_proj, num_categories, 'tsne')
 
-      # visualize pca with coloring of correct class
-      save_scatter_plot(features, pca_proj, num_categories, 'pca')
-      
-    if parsed_args.roc:
-      model = None
-      features_test = torch.load(parsed_args.features_test)
-      if parsed_args.d_test is not None:
-        # treat inital image data as features
-        features_test = test_data = data.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
-        model = torchvision.models.resnet50(pretrained=True)
-      
-      # model = models.AdaptiveModel(num_categories=len(list(features_test.keys())))
-      # model.load_state_dict(torch.load(model))
-      # model.eval()
-      utilities.perform_roc("cosine", features, features_test, model)
+    # invoke pca algo
+    pca = PCA(n_components=2)
+    pca_proj = pca.fit_transform(embeddings)
+    print(F'Variance ratio: {pca.explained_variance_ratio_}')
 
-    if parsed_args.hist:
-      utilities.save_feature_magnitude_hist(features)
+    # visualize pca with coloring of correct class
+    save_scatter_plot(features, pca_proj, num_categories, 'pca')
+    
+  if parsed_args.roc:
+    model = None
+    if parsed_args.d_test is not None:
+      # treat inital image data as features
+      features_test = test_data = data.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
+      model = torchvision.models.resnet50(pretrained=True)
+    
+    # model = models.AdaptiveModel(num_categories=len(list(features_test.keys())))
+    # model.load_state_dict(torch.load(model))
+    # model.eval()
+    utilities.perform_roc("cosine", features, features_test, model)
+
+  if parsed_args.hist:
+    utilities.save_feature_magnitude_hist(features)
+
+  if parsed_args.auc:
+    utilities.calculate_auc(features, features_test)
 
   if parsed_args.confusion is not None:
     res_data = utilities.load_json_file(parsed_args.confusion)
