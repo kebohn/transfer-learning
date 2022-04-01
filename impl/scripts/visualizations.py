@@ -147,6 +147,7 @@ def main():
     utilities.perform_roc(features, features_test)
 
   if parsed_args.hist:
+    print(features)
     utilities.save_feature_magnitude_hist(features)
 
   if parsed_args.confusion is not None:

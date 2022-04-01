@@ -45,6 +45,7 @@ def extract(model, train_loader):
     for category in cat_set: # iterate over all distinctive categories in the batch
       indices = numpy.argwhere(names_arr == category).flatten() # find indices from the same category
       cat_features = torch.index_select(features, 0, torch.from_numpy(indices).to(get_device())) # retrieve only features from correct category
+      cat_features = cat_features.unsqueeze(dim=0) if len(cat_features.size()) == 1 else cat_features # make sure we have a 2D tensor
       if category in res.keys(): # check if we already have some features
         res[category] = torch.cat((res[category], cat_features), dim=0) # add new features to existing ones
       else:

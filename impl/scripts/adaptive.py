@@ -97,8 +97,7 @@ def main():
         
       # extract features from trained adaptive model
       adaptive_train_features = utilities.extract(adaptive_features_model, f_train_loader)
-      feature_test_loader_2 = torch.utils.data.DataLoader(dataset=feature_test_data, batch_size=10, shuffle=False)
-      adaptive_test_features = utilities.extract(adaptive_features_model, feature_test_loader_2)
+      adaptive_test_features = utilities.extract(adaptive_features_model, feature_test_loader)
 
       # save features
       torch.save(adaptive_train_features, F'{parsed_args.results}features_train_size_{current_size}.pt')

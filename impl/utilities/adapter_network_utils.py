@@ -118,9 +118,10 @@ def train(
 
         # get all validation features
         valid_features =  utilities.extract(fe_model, v_loader)
+        train_features =  utilities.extract(fe_model, t_loader)
 
         # compute area under the curve for validation features
-        valid_auc.append(1.0 - utilities.calculate_auc(valid_features))
+        valid_auc.append(1.0 - utilities.calculate_auc(train_features, valid_features))
 
         es_counter = incease_early_stop_counter(valid_auc, es_counter)
 

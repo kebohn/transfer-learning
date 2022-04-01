@@ -46,7 +46,6 @@ def main():
 
   valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=10, shuffle=False, num_workers=8)
   test_loader = torch.utils.data.DataLoader(dataset=test_data, batch_size=1, shuffle=False)
-  test_loader_2 = torch.utils.data.DataLoader(dataset=test_data, batch_size=10, shuffle=False)
 
   # increase current size per category by step_size after every loop
   while(current_size <= parsed_args.max_size):
@@ -96,7 +95,7 @@ def main():
 
         # extract features from training data
         features = utilities.extract(fe_model, train_loader)
-        test_features = utilities.extract(fe_model, test_loader_2)
+        test_features = utilities.extract(fe_model, test_loader)
 
         # save train and test features
         torch.save(features, F'{parsed_args.results}features_train_size_{current_size}.pt')
