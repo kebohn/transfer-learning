@@ -10,18 +10,15 @@ import models
 def train(
   pre_trained_model,
   adapter_model,
-  epochs,
-  lr,
-  momentum,
-  parsed_args,
+  params,
   current_size,
-  features_valid={},
+  valid_features={},
   train_loader=[],
   valid_loader=[]
 ):
   # define loss and optimizer
   loss = torch.nn.CrossEntropyLoss()
-  optimizer = torch.optim.SGD(params=adapter_model.parameters(), lr=lr, momentum=momentum)
+  optimizer = torch.optim.SGD(params=adapter_model.parameters(), lr=params.lr, momentum=params.momentum)
 
   # define running arrays
   valid_loss = []
@@ -39,20 +36,17 @@ def train(
   # train network
   print("Learning Model...")
   since = time.time()
- 
-  for epoch in range(epochs):
 
-    print(F'\nEpoch {epoch + 1}/{epochs}:')
+  # retrieve train and valid feature loader
+  if params.adaptive:
+    train_loader, valid_loader = utilities.prepare_features_adaptive_training(pre_trained_model, train_loader, valid_features)
+ 
+  for epoch in range(params.epochs):
+
+    print(F'\nEpoch {epoch + 1}/{params.epochs}:')
     epoch_loss = 0
 
-    # retrieve train and valid feature loader
-    if features_valid:
-      t_loader, v_loader = utilities.prepare_features_for_training(pre_trained_model, train_loader, features_valid)
-    else:
-      t_loader, v_loader = train_loader, valid_loader
-
-
-    for data, targets, _ in t_loader: # iterate over training data in batches
+    for data, targets, _ in train_loader: # iterate over training data in batches
       data = data.to(utilities.get_device())
       targets = targets.to(utilities.get_device())
 
@@ -76,7 +70,7 @@ def train(
       num_samples += predictions.size(0)
 
     # compute training loss and accuracy and append to list
-    train_loss.append(epoch_loss / len(t_loader))
+    train_loss.append(epoch_loss / len(train_loader))
     train_acc.append(num_correct / num_samples)
     print(F'Train Loss: {train_loss[-1]:.2f} | Accuracy: {train_acc[-1]:.2f}')
 
@@ -88,7 +82,7 @@ def train(
     adapter_model.eval()
 
     with torch.no_grad():
-      for x, y, _ in v_loader:
+      for x, y, _ in valid_loader:
         x = x.to(utilities.get_device())
         y = y.to(utilities.get_device())
 
@@ -104,21 +98,21 @@ def train(
         epoch_loss += current_loss.item()
         
     # compute test loss and accuracy and append to list
-    current_valid_loss = epoch_loss / len(v_loader)
+    current_valid_loss = epoch_loss / len(valid_loader)
     valid_loss.append(current_valid_loss)
     valid_acc.append(num_correct / num_samples)
     print(F'Validation Loss: {valid_loss[-1]:.2f} | Validation Accuracy: {valid_acc[-1]:.2f}')
 
-    if parsed_args.early_stop:
+    if params.early_stop:
 
-      if parsed_args.auc:
+      if params.auc:
 
         # define feature extraction model for validation set
         fe_model = models.FEModel(adapter_model, utilities.get_device())
 
         # get all validation features
-        valid_features =  utilities.extract(fe_model, v_loader)
-        train_features =  utilities.extract(fe_model, t_loader)
+        valid_features =  utilities.extract(fe_model, valid_loader)
+        train_features =  utilities.extract(fe_model, train_loader)
 
         # compute area under the curve for validation features
         valid_auc.append(1.0 - utilities.calculate_auc(train_features, valid_features))
@@ -135,7 +129,7 @@ def train(
         break
 
   # save model
-  torch.save(adapter_model.state_dict(), F'{parsed_args.results}model_size_{current_size}_lr_{lr}_epochs_{epoch + 1}.pth')
+  torch.save(adapter_model.state_dict(), F'{params.results}model_size_{current_size}_lr_{params.lr}_epochs_{epoch + 1}.pth')
     
   time_elapsed = time.time() - since
   print(F'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
@@ -144,16 +138,16 @@ def train(
   acc_data = {'train': train_acc, 'validation': valid_acc}
 
   # write loss and accuracy to json
-  utilities.save_json_file(F'{parsed_args.results}loss_size_{current_size}', loss_data)
-  utilities.save_json_file(F'{parsed_args.results}acc_size_{current_size}', acc_data)
+  utilities.save_json_file(F'{params.results}loss_size_{current_size}', loss_data)
+  utilities.save_json_file(F'{params.results}acc_size_{current_size}', acc_data)
 
   # save loss
-  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=loss_data, x_label='epochs', y_label='loss', title=F'{parsed_args.results}Loss_size_{current_size}')
+  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=loss_data, x_label='epochs', y_label='loss', title=F'{params.results}Loss_size_{current_size}')
   # save accuracy
-  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=acc_data, x_label='epochs', y_label='accuracy', title=F'{parsed_args.results}Accuracy_size_{current_size}')
+  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=acc_data, x_label='epochs', y_label='accuracy', title=F'{params.results}Accuracy_size_{current_size}')
 
   # return loader in case of extraction mode
-  return t_loader, v_loader
+  return train_loader, valid_loader
 
 
 def test(model, test_loader):

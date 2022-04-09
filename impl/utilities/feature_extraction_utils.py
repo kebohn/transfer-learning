@@ -11,26 +11,26 @@ def softmax(x):
   return numpy.exp(x) / sum(numpy.exp(x))
 
 
-def prepare_features_for_training(pre_trained_model, train_loader, features_valid):
+def prepare_features_adaptive_training(pre_trained_model, train_loader, valid_features):
  
   # extract training features from training data
-  features_train = extract(pre_trained_model, train_loader)
+  train_features = extract(pre_trained_model, train_loader)
 
   # normalize training features 
-  features_train_norm = pre_trained_model.normalize_train(features_train)
+  train_features_norm = pre_trained_model.normalize_train(train_features)
 
   # handle trainig features like a dataset
-  feature_train_data = data.FeatureDataset(features_train_norm)
-  feature_train_loader = torch.utils.data.DataLoader(dataset=feature_train_data, batch_size=10, shuffle=True)
+  train_features_data = data.FeatureDataset(train_features_norm)
+  train_features_loader = torch.utils.data.DataLoader(dataset=train_features_data, batch_size=10, shuffle=True)
 
   # normalize validation features according train normalization
-  features_valid_norm = pre_trained_model.normalize_test(features_valid)
+  valid_features_norm = pre_trained_model.normalize_test(valid_features)
 
   # handle validation features like a dataset
-  feature_valid_data = data.FeatureDataset(features_valid_norm)
-  feature_valid_loader = torch.utils.data.DataLoader(dataset=feature_valid_data, batch_size=10, shuffle=False)
+  valid_features_data = data.FeatureDataset(valid_features_norm)
+  valid_feature_loader = torch.utils.data.DataLoader(dataset=valid_features_data, batch_size=10, shuffle=False)
 
-  return feature_train_loader, feature_valid_loader
+  return train_features_loader, valid_feature_loader
 
  
 def extract(model, train_loader):
