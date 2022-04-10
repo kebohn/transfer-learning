@@ -1,5 +1,6 @@
 import shutil
 import os
+import random
 
 def move_files(directory, file_list, dir):
   with open(F"{directory}/{file_list}") as f:
@@ -16,3 +17,28 @@ def move_files(directory, file_list, dir):
 directory = '/local/scratch/bohn/datasets/indoorCVPR_09'
 move_files(directory, 'TrainImages.txt', 'train')
 move_files(directory, 'TestImages.txt', 'test')
+
+# split train into validation samples
+
+# create directory
+try:
+  os.mkdir(F'{directory}/validation')
+except:
+  pass # swallow error
+
+train_cats = os.listdir(F'{directory}/train')
+
+for cat in train_cats:
+  try:
+    os.mkdir(F'{directory}/validation/{cat}')
+  except:
+    pass # swallow error
+  
+  files = os.listdir(F'{directory}/train/{cat}')
+
+  # retrieve 10 random samples for validation
+  test_valid = random.sample(files, 10)
+
+  # move files to new validation directory
+  for file in test_valid:
+    shutil.move(F'{directory}/train/{cat}/{file}', F'{directory}/validation/{cat}/{file}')

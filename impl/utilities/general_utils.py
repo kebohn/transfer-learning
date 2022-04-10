@@ -7,6 +7,7 @@ def parse_arguments():
   parser = argparse.ArgumentParser(description='Baseline script for transfer learning')
   parser.add_argument('--d', type=utilities.dir_path, help='Directory where files are stored (absolute dir)')
   parser.add_argument('--d_test', type=utilities.dir_path, help='Directory where test files are stored (absolute dir)')
+  parser.add_argument('--d_valid', type=utilities.dir_path, help='Directory where validation files are stored (absolute dir)')
   parser.add_argument('--model', type=utilities.dir_path, help='Directory where model is stored (absolute dir)')
   parser.add_argument('--features', type=utilities.dir_path, help='Directory where features are stored (absolute dir)')
   parser.add_argument('--results', type=utilities.dir_path, help='Directory where results should be stored (absolute dir)')

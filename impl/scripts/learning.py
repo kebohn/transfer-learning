@@ -17,7 +17,7 @@ def main():
 
   # load test and validation data
   print("Prepare test and validation dataset...")
-  valid_data = data.CustomImageDataset('validation.csv', parsed_args.d, utilities.test_transforms())
+  valid_data = data.CustomImageDataset('data.csv', parsed_args.d_valid, utilities.test_transforms())
   test_data = data.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
 
   valid_loader = torch.utils.data.DataLoader(dataset=valid_data, batch_size=10, shuffle=False, num_workers=8)

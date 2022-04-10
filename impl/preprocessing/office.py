@@ -22,7 +22,7 @@ try:
   for new_dir in os.listdir(target_dir):
     for cat in cats:
       os.mkdir(F'{target_dir}/{new_dir}/{cat}')
-except Exception:
+except:
   pass # swallow error
 
 
