@@ -71,6 +71,7 @@ def main():
         pre_trained_model=extraction_model,
         adapter_model=model, 
         train_loader=train_loader,
+        valid_loader=valid_loader,
         valid_features=valid_features,
         params=parsed_args,
         current_size=current_size
