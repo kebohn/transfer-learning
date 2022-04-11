@@ -17,6 +17,11 @@ The following approaches are implemented in `learning.py`:
   1. The parameters in the trained network will be frozen and a adapter network will be trained with the small dataset.
   2. Feature Extraction of the adapter network and used for a shallow learning algo or similarity metric ['cosine', 'mean', 'kNN', 'svm']
 
+### Deep Features Gallery Approaches
+Different approaches when using the deep features in the image classification task are available:
+- Use gradually more training samples per category for training and also use all training data to extract the features for classification → all training samples are then features for the gallery (default)
+- Use gradually more training samples per category for training the network but use always the same 5 samples per category in the gallery for classification that are not part of the training
+- Use all training samples per category for training and then gradually increase the gallery samples
 
 #### Example Pre-Trained Approach with extracted Deep Features using Cosine distance:
 
