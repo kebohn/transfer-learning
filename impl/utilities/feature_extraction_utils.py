@@ -36,7 +36,7 @@ def prepare_features_adaptive_training(pre_trained_model, train_loader, valid_fe
 def extract(model, train_loader):
   print("Extract features...")
   res = {}
-
+  
   # iterate over training data
   for data, _, names in train_loader:
     features = model.extract(data) # extract features for whole batch
@@ -44,8 +44,8 @@ def extract(model, train_loader):
     names_arr = numpy.array(names)
     for category in cat_set: # iterate over all distinctive categories in the batch
       indices = numpy.argwhere(names_arr == category).flatten() # find indices from the same category
+      features = features.unsqueeze(dim=0) if len(features.size()) == 1 else features # make sure we have a 2D tensor
       cat_features = torch.index_select(features, 0, torch.from_numpy(indices).to(get_device())) # retrieve only features from correct category
-      cat_features = cat_features.unsqueeze(dim=0) if len(cat_features.size()) == 1 else cat_features # make sure we have a 2D tensor
       if category in res.keys(): # check if we already have some features
         res[category] = torch.cat((res[category], cat_features), dim=0) # add new features to existing ones
       else:
