@@ -8,8 +8,7 @@ def move_files(directory, file_list, dir):
       file = line.strip()
       new_dir = file.split("/")[0]
       new_dir_path = F"{directory}/{dir}/{new_dir}"
-      if not os.path.exists(new_dir_path):
-        os.makedirs(new_dir_path)
+      os.makedirs(new_dir_path, exist_ok=True)
       shutil.move(F"{directory}/Images/{file}", F"{directory}/{dir}/{file}")
       print(F"{file} listed in {file_list} moved to {new_dir_path}")
 
@@ -20,20 +19,12 @@ move_files(directory, 'TestImages.txt', 'test')
 
 # split train into validation samples
 
-# create directory
-try:
-  os.mkdir(F'{directory}/validation')
-except:
-  pass # swallow error
-
 train_cats = os.listdir(F'{directory}/train')
 
 for cat in train_cats:
-  try:
-    os.mkdir(F'{directory}/validation/{cat}')
-  except:
-    pass # swallow error
-  
+  # create category dir
+  os.makdirs(F'{directory}/validation/{cat}', exist_ok=True)
+
   files = os.listdir(F'{directory}/train/{cat}')
 
   # retrieve 10 random samples for validation
