@@ -3,60 +3,60 @@ import torchvision
 import matplotlib.pyplot as plt
 import time
 import numpy
-import models
 import utilities
+import models
 
 
-def define_model(data, fine_tune):
-  # define network
-  base_model = torchvision.models.resnet50(pretrained=True) # load pretrained model resnet-50
-  model = models.AdaptiveModel(model=base_model, num_categories=data.get_categories(), shallow=not fine_tune)
-
-  # if fine_tune is true the whole model will be trained again
-  if not fine_tune:
-    # Freeze all layers except the additional classifier layers
-    for name, param in model.named_parameters():
-      # train the adapter network
-      if name.split('.')[0] not in 'classifier':
-          param.requires_grad = False
-
-  return model.to(utilities.get_device()) # save to GPU
-
-
-def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_stop, current_size):
+def train(
+  pre_trained_model,
+  adapter_model,
+  params,
+  current_size,
+  valid_features={},
+  train_loader=[],
+  valid_loader=[]
+):
+  # define loss and optimizer
   loss = torch.nn.CrossEntropyLoss()
-  optimizer = optimizer = torch.optim.SGD(params=model.parameters(), lr=lr, momentum=momentum)
+  optimizer = torch.optim.SGD(params=adapter_model.parameters(), lr=params.lr, momentum=params.momentum)
+
+  # define running arrays
   valid_loss = []
   valid_acc = []
+  valid_auc = []
   train_loss = []
   train_acc = []
   num_correct = 0
   num_samples = 0
 
-  # early stopping: when the validation error in the last 10 epochs does not change we quit training
-  es_counter = 0 
-  es_threshold = 10
+  # early stopping: when the validation error in the last n epochs does not change we quit training
+  es_counter = 0
+  es_threshold = 30
 
   # train network
   print("Learning Model...")
   since = time.time()
-  # learning rate decay 1/10 when a plateau is reached, currently not used
-  # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', patience=5, verbose=True, min_lr=1e-6)
-  for epoch in range(epochs):
 
-    print(F'\nEpoch {epoch + 1}/{epochs}:')
+  # retrieve train and valid feature loader
+  if params.adaptive:
+    train_loader, valid_loader = utilities.prepare_features_adaptive_training(pre_trained_model, train_loader, valid_features)
+ 
+  for epoch in range(params.epochs):
+
+    print(F'\nEpoch {epoch + 1}/{params.epochs}:')
     epoch_loss = 0
 
     for data, targets, _ in train_loader: # iterate over training data in batches
       data = data.to(utilities.get_device())
       targets = targets.to(utilities.get_device())
 
+      optimizer.zero_grad()
+
       # forward pass
-      scores = model(data)
+      scores = adapter_model(data)
       current_loss = loss(scores, targets)
 
       # backward pass
-      optimizer.zero_grad()
       current_loss.backward()
 
       # gradient descent
@@ -79,7 +79,7 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
     epoch_loss = 0
     num_correct = 0
     num_samples = 0
-    model.eval()
+    adapter_model.eval()
 
     with torch.no_grad():
       for x, y, _ in valid_loader:
@@ -87,7 +87,7 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
         y = y.to(utilities.get_device())
 
         # forward pass
-        scores = model(x)
+        scores = adapter_model(x)
 
         _, predictions = scores.max(1)
         num_correct += predictions.eq(y).sum().item()
@@ -102,21 +102,34 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
     valid_loss.append(current_valid_loss)
     valid_acc.append(num_correct / num_samples)
     print(F'Validation Loss: {valid_loss[-1]:.2f} | Validation Accuracy: {valid_acc[-1]:.2f}')
-  
-    # early stopping
-    if len(valid_loss) >= 2 and early_stop:
-      if abs(valid_loss[-2] - current_loss) <= 1e-2 or current_valid_loss > valid_loss[-2]:
-        es_counter += 1
+
+    if params.early_stop:
+
+      if params.auc:
+
+        # define feature extraction model for validation set
+        fe_model = models.FEModel(adapter_model, utilities.get_device())
+
+        # get all validation features
+        valid_features =  utilities.extract(fe_model, valid_loader)
+        train_features =  utilities.extract(fe_model, train_loader)
+
+        # compute area under the curve for validation features
+        valid_auc.append(1.0 - utilities.calculate_auc(train_features, valid_features))
+
+        es_counter = incease_early_stop_counter(valid_auc, es_counter)
+
+      else:
+        es_counter = incease_early_stop_counter(valid_loss, es_counter)
+
+      print(F"Current early stopping threshold counter {es_counter}/{es_threshold}")
 
       if es_counter == es_threshold:
         print("Model starts to overfit, training stopped")
         break
 
-    # rate decay when validation loss is not changing (currently not used)
-    #scheduler.step(epoch_loss / len(valid_loader))
-
   # save model
-  torch.save(model.state_dict(), F'{path}model_size_{current_size}_lr_{lr}_epochs_{epoch + 1}.pth')
+  torch.save(adapter_model.state_dict(), F'{params.results}model_size_{current_size}_lr_{params.lr}_epochs_{epoch + 1}.pth')
     
   time_elapsed = time.time() - since
   print(F'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
@@ -125,23 +138,29 @@ def train(model, epochs, lr, momentum, train_loader, valid_loader, path, early_s
   acc_data = {'train': train_acc, 'validation': valid_acc}
 
   # write loss and accuracy to json
-  utilities.save_json_file(F'{path}loss_size_{current_size}', loss_data)
-  utilities.save_json_file(F'{path}acc_size_{current_size}', acc_data)
+  utilities.save_json_file(F'{params.results}loss_size_{current_size}', loss_data)
+  utilities.save_json_file(F'{params.results}acc_size_{current_size}', acc_data)
 
   # save loss
-  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=loss_data, x_label='epochs', y_label='loss', title=F'{path}Loss_size_{current_size}')
+  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=loss_data, x_label='epochs', y_label='loss', title=F'{params.results}Loss_size_{current_size}')
   # save accuracy
-  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=acc_data, x_label='epochs', y_label='accuracy', title=F'{path}Accuracy_size_{current_size}')
+  save_model_plot(x=list(numpy.arange(1, epoch + 2)), y=acc_data, x_label='epochs', y_label='accuracy', title=F'{params.results}Accuracy_size_{current_size}')
+
+  # return loader in case of extraction mode
+  return train_loader, valid_loader
 
 
 def test(model, test_loader):
   print("Test model...")
   res = {}
+  y_test_arr = []
+  perdictions_arr = []
   num_correct = 0
   num_samples = 0
   model.eval()
   with torch.no_grad():
     for x, y, _ in test_loader:
+      y_test_arr.extend(y.detach().cpu().tolist())
       x = x.to(utilities.get_device())
       y = y.to(utilities.get_device())
 
@@ -149,14 +168,26 @@ def test(model, test_loader):
       scores = model(x)
 
       _, predictions = scores.max(1)
+      perdictions_arr.extend(predictions.detach().cpu().tolist())
       num_correct += predictions.eq(y).sum().item()
       num_samples += predictions.size(0)
         
   acc = num_correct / num_samples
   print(F'Test Accuracy: {acc:.2f}')
   res["total_acc"] = acc
+  res["labels"] = y_test_arr
+  res["predictions"] = perdictions_arr
     
   return res
+
+
+def incease_early_stop_counter(args_arr, es_counter):
+  print(F"Current validation early stopping metric: {args_arr[-1]:.4f}")
+  new_counter = es_counter
+  if len(args_arr) >= 2:
+    if args_arr[-2] - args_arr[-1] <= 1e-6:
+      new_counter += 1
+  return new_counter
 
 
 def save_model_plot(x, y, x_label, y_label, title):

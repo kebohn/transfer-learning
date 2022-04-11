@@ -1,25 +1,56 @@
-import imp
+from utilities.cuda import get_device
 import torch
 import matplotlib.pyplot as plt
 import numpy
 import collections
 import models
+import data
+
+
+def softmax(x):
+  return numpy.exp(x) / sum(numpy.exp(x))
+
+
+def prepare_features_adaptive_training(pre_trained_model, train_loader, valid_features):
+ 
+  # extract training features from training data
+  train_features = extract(pre_trained_model, train_loader)
+
+  # normalize training features 
+  train_features_norm = pre_trained_model.normalize_train(train_features)
+
+  # handle trainig features like a dataset
+  train_features_data = data.FeatureDataset(train_features_norm)
+  train_features_loader = torch.utils.data.DataLoader(dataset=train_features_data, batch_size=10, shuffle=True)
+
+  # normalize validation features according train normalization
+  valid_features_norm = pre_trained_model.normalize_test(valid_features)
+
+  # handle validation features like a dataset
+  valid_features_data = data.FeatureDataset(valid_features_norm)
+  valid_feature_loader = torch.utils.data.DataLoader(dataset=valid_features_data, batch_size=10, shuffle=False)
+
+  return train_features_loader, valid_feature_loader
 
  
 def extract(model, train_loader):
-  print("Extract features from...")
-  category = ""
-  features = {}
-  for data, _, name in train_loader: # iterate over training data
-    name = ''.join(name) # convert tuple to string
-    feature = model.extract(data)
-    if category == name:
-      features[name] = torch.cat([features[name], feature.reshape(1, -1)], dim=0) # construct feature matrix
-    else:
-      print(F'Category: {name}')
-      features[name] = feature.reshape(1, -1)
-    category = name
-  return features
+  print("Extract features...")
+  res = {}
+
+  # iterate over training data
+  for data, _, names in train_loader:
+    features = model.extract(data) # extract features for whole batch
+    cat_set = set(names)
+    names_arr = numpy.array(names)
+    for category in cat_set: # iterate over all distinctive categories in the batch
+      indices = numpy.argwhere(names_arr == category).flatten() # find indices from the same category
+      cat_features = torch.index_select(features, 0, torch.from_numpy(indices).to(get_device())) # retrieve only features from correct category
+      cat_features = cat_features.unsqueeze(dim=0) if len(cat_features.size()) == 1 else cat_features # make sure we have a 2D tensor
+      if category in res.keys(): # check if we already have some features
+        res[category] = torch.cat((res[category], cat_features), dim=0) # add new features to existing ones
+      else:
+        res[category] = cat_features # add new features
+  return dict(sorted(res.items()))
 
 
 def save_training_size_plot(res_dir, res):
@@ -55,6 +86,8 @@ def predict(model, params, features=[], test_loader=[]):
   res = {}
   res["cat_acc"] = []
   res["categories"] = []
+  res["labels"] = []
+  res["predictions"] = []
  
   if params.neighbor:
     max_number_features = max([len(f) for f in features.values()]) # variable with maximum number of features for one category
@@ -64,28 +97,33 @@ def predict(model, params, features=[], test_loader=[]):
     svmModel = models.SVMModel(device="not used here")
     y_train = []
     X_train = []
-    for key, val in features.items():
+    features_norm = model.normalize_train(features)
+    for key, val in features_norm.items():
       y_train.extend(numpy.repeat(key, val.size()[0]))
-      tmp = numpy.split(val.numpy(), val.size()[0])
+      tmp = numpy.split(val.detach().cpu().numpy(), val.size()[0])
       X_train.extend([i.flatten() for i in tmp])
 
-    # save transformation for test data and transform training data
-    X_strain_std = svmModel.fit_scaler(X_train)
-    svmModel.fit(X_strain_std, y_train)
-
+    svmModel.fit(X_train, y_train)
 
   for test_data, _, test_name in test_loader:
 
     # convert tuple to string
     test_name = ''.join(test_name)
 
+    # add test label to res array
+    res["labels"].append(test_name)
+
     # extract test feature from model
     X_test = model.extract(test_data)
 
     if params.svm:
-      y_test = svmModel.predict(X_test)
+      X_test_norm = model.normalize(X_test) # normalize test data with norm from training data
+      y_test = svmModel.predict(X_test_norm.detach().cpu().reshape(1, -1))
     else:
-      y_test = model.predict(X_test, features, distances, labels, params)
+      y_test, _ = model.predict(X_test, features, distances, labels, params)
+
+    # add test prediction to res array
+    res["predictions"].append(y_test) 
 
     categories[test_name][0] += y_test == test_name # we only increase when category has been correctly identified
     categories[test_name][1] += 1 # always increase after each iteration s.t. we have the total number

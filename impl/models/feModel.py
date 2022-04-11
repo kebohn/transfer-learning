@@ -5,25 +5,45 @@ import models
 
 
 class FEModel(models.BaseModel):
-  def __init__(self, model, device, adaptive=False):
+  def __init__(self, model, device):
     super().__init__(device)
     self.model = model
-    # remove classification layer from adaptive network
-    if adaptive:
-      modules = list(self.model.classifier.children())[:-1]
-      self.model.classifier = torch.nn.Sequential(*modules)
-    else:
-      modules = list(self.model.children())[:-1] # remove last fully connected layer from model
+    self.tol = 1e-12 # tolerance
+
+    # replace last fully connected layer from model with Identity Layer
+    if model is not None:
+      modules = list(self.model.children())
+      modules[-1] = models.IdentityModel()
       self.model = torch.nn.Sequential(*modules)
-    self.model.eval() # evaluation mode
-    self.model.to(device) # save on GPU
+      self.model.eval() # evaluation mode
+      self.model.to(device) # save on GPU
 
 
   def extract(self, img):
     with torch.no_grad(): # no training
-        img = img.to(self.device) # save on GPU
-        feature = self.model(img) # get model output
-        return torch.flatten(feature).cpu()
+      img = img.to(self.device) # save on GPU
+      feature = self.model(img) # get model output
+      return feature.squeeze() # remove unecessary dimensions
+  
+
+  def normalize_train(self, features):
+    vals = torch.cat(tuple(features.values()), dim=0) # combine features into one tensor
+    self.norm = torch.linalg.norm(vals,dim=0) # compute norm over the columns
+
+    # check if computed norm is greater than tolerance to prevent divsion by zero
+    self.norm[self.norm < self.tol] = self.tol
+
+    # apply normalization
+    return self.normalize_test(features)
+
+
+  def normalize_test(self, features):
+    return {k: self.normalize(v) for k, v in features.items()}
+
+
+  def normalize(self, features):
+    # use same norm from training features
+    return torch.div(features.detach().cpu(), self.norm.detach().cpu())
 
 
   def predict(self, X_test, features, distances, labels, params):
@@ -31,13 +51,13 @@ class FEModel(models.BaseModel):
     index = 0
     for predicted_cat, feature in features.items():
       if params.cosine or params.neighbor:
-        cosine_matrix = self.__cos_similarity(feature.numpy(), X_test.numpy().reshape(1, -1)) # compute cosine of all existing features
+        cosine_matrix = self.__cos_similarity(feature.detach().cpu().numpy(), X_test.detach().cpu().numpy().reshape(1, -1)) # compute cosine of all existing features
         dist = 1.0 - numpy.max(cosine_matrix) # take the maximum similarity value and transform it to similarity distance
         if params.neighbor:
           distances[index, :len(feature)] = cosine_matrix.reshape(len(feature)) # persist all computed distances, will be used for kNN algo
           labels.append(predicted_cat) # persist all categories, will be used for kNN algo
       elif params.mean:
-        dist = 1.0 - self.__cos_similarity(torch.mean(feature, 0).numpy().reshape(1, -1), X_test.numpy().reshape(1, -1))[0,0] # compute similarity distance
+        dist = 1.0 - self.__cos_similarity(torch.mean(feature, 0).detach().cpu().numpy().reshape(1, -1), X_test.detach().cpu().numpy().reshape(1, -1))[0,0] # compute similarity distance
       else:
         raise argparse.ArgumentTypeError('Metric not defined, use one of the following: (--mean, --cosine, --neighbor --svm)')
 
@@ -53,7 +73,7 @@ class FEModel(models.BaseModel):
       if (len(numpy.where(occurence_count==occurence_count.max())) == 1 and params.k > 1): # check if a definitive winner has been found
         best_cat = labels[occurence_count.argmax()]
         
-    return best_cat
+    return best_cat, min_distance
 
   
   def fit(self):
