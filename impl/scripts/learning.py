@@ -99,9 +99,9 @@ def main():
         tr_features = utilities.extract(learned_extraction_model, train_features_loader)
         te_features = utilities.extract(learned_extraction_model, test_loader)
 
-      else:
-        tr_features = utilities.extract(model, train_loader)
-        te_features = utilities.extract(model, test_loader)
+      else: 
+        tr_features = utilities.extract(extraction_model, train_loader)
+        te_features = utilities.extract(extraction_model, test_loader)
       
       # save features
       torch.save(tr_features, F'{parsed_args.results}features_train_size_{current_size}.pt')
