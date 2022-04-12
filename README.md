@@ -19,9 +19,10 @@ The following approaches are implemented in `learning.py`:
 
 ### Deep Features Gallery Approaches
 Different approaches when using the deep features in the image classification task are available:
-- Use gradually more training samples per category for training and also use all training data to extract the features for classification → all training samples are then features for the gallery (default)
-- Use gradually more training samples per category for training the network but use always the same 5 samples per category in the gallery for classification that are not part of the training
-- Use all training samples per category for training and then gradually increase the gallery samples
+1. Use gradually more training samples per category for training and also use all training data to extract the features for classification → all training samples are then features for the gallery. This is the default option. No further parameters must be added.
+2. Use gradually more training samples per category for training the network but use always the same 5 samples per category in the gallery for classification that are not part of the training. In this case the script `createDatasetCsv.py --d path-to-training-data --k 5` must be executed. This creates two separate csv files: `data.csv` will then be used for training the model and `gallery.csv` will be used as a permanent gallery. After creating the csv files the main script `learning.py` with the additional parameter `--k-gallery` must be set in order to use the permanent gallery images.
+3. Use all training samples per category for training and then gradually increase the gallery samples.
+
 
 #### Example Pre-Trained Approach with extracted Deep Features using Cosine distance:
 
@@ -47,7 +48,3 @@ The following Datasets are used to examine the approaches:
 - Indoor http://wb.mit.edu/torralba/www/indoor.html
 
 - Office https://link.springer.com/chapter/10.1007/978-3-642-15561-1_16
-
-
-
-

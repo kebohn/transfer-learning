@@ -1,50 +1,66 @@
 #!/usr/bin/env python3
+import models
+import data
+import utilities
+from sklearn.metrics import confusion_matrix
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+import numpy
+import torchvision
+import torch
+import argparse
 import dataclasses
 import sys
 
-sys.path.append("..") # append the path of the parent directory
+sys.path.append("..")  # append the path of the parent directory
 
-import argparse
-import torch
-import torchvision
-import numpy
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from sklearn.manifold import TSNE
-from sklearn.decomposition import PCA
-from sklearn.metrics import confusion_matrix
-import utilities
-import data
-import models
 
-vis = {} # dict stores all layer outputs
+vis = {}  # dict stores all layer outputs
+
 
 def parse_arguments():
-  parser = argparse.ArgumentParser(description='Visualizes features map and filters of a provided model')
-  parser.add_argument('--model', type=utilities.dir_path, help='Directory where model for visualization is located (absolute dir)')
-  parser.add_argument('--d', type=utilities.dir_path, help='Directory where images are stored that will be used for the visualization of the feature maps (absolute dir)')
-  parser.add_argument('--fine-tune', dest='fine_tune', action='store_true', help='Define if the whole model is fine-tuned (Default: false)')
-  parser.add_argument('--filters', dest='filters', action='store_true', help='Visualize filters of model (Default: false)')
-  parser.add_argument('--maps', dest='maps', action='store_true', help='Visualize feature maps of model (Default: false)')
-  parser.add_argument('--dm', dest='dm', action='store_true', help='Apply dimensionality reduction (t-sne, pca) on features (Default: false)')
-  parser.add_argument('--roc', dest='roc', action='store_true', help='Visualize RoC graph on features (Default: false)')
-  parser.add_argument('--hist', dest='hist', action='store_true', help='Visualize magintue graph on features OVR (Default: false)')
-  parser.add_argument('--features', type=utilities.dir_path, help='Directory where features are stored (absolute dir)')
-  parser.add_argument('--features_test', type=utilities.dir_path, help='Directory where test features are stored (absolute dir)')
-  parser.add_argument('--d_test', type=utilities.dir_path, help='Directory where test data are stored (absolute dir)')
-  parser.add_argument('--confusion', type=utilities.dir_path, help='Directory where data for confusion matrix is stored (absolute dir)')
+  parser = argparse.ArgumentParser(
+      description='Visualizes features map and filters of a provided model')
+  parser.add_argument('--model', type=utilities.dir_path,
+                      help='Directory where model for visualization is located (absolute dir)')
+  parser.add_argument('--d', type=utilities.dir_path,
+                      help='Directory where images are stored that will be used for the visualization of the feature maps (absolute dir)')
+  parser.add_argument('--fine-tune', dest='fine_tune', action='store_true',
+                      help='Define if the whole model is fine-tuned (Default: false)')
+  parser.add_argument('--filters', dest='filters', action='store_true',
+                      help='Visualize filters of model (Default: false)')
+  parser.add_argument('--maps', dest='maps', action='store_true',
+                      help='Visualize feature maps of model (Default: false)')
+  parser.add_argument('--dm', dest='dm', action='store_true',
+                      help='Apply dimensionality reduction (t-sne, pca) on features (Default: false)')
+  parser.add_argument('--roc', dest='roc', action='store_true',
+                      help='Visualize RoC graph on features (Default: false)')
+  parser.add_argument('--hist', dest='hist', action='store_true',
+                      help='Visualize magintue graph on features OVR (Default: false)')
+  parser.add_argument('--features', type=utilities.dir_path,
+                      help='Directory where features are stored (absolute dir)')
+  parser.add_argument('--features_test', type=utilities.dir_path,
+                      help='Directory where test features are stored (absolute dir)')
+  parser.add_argument('--d_test', type=utilities.dir_path,
+                      help='Directory where test data are stored (absolute dir)')
+  parser.add_argument('--confusion', type=utilities.dir_path,
+                      help='Directory where data for confusion matrix is stored (absolute dir)')
   return parser.parse_args()
 
 
 def visualize_filters(layers):
   for i, l in enumerate(layers):
     w = l.weight
-    size = int(numpy.sqrt(w.shape[0])) # construct number of rows and columns for subplot
-    x = y = int(size) + 1 if size % 1 != 0 else int(size) # check if number of filters can be arranged in subplots
+    # construct number of rows and columns for subplot
+    size = int(numpy.sqrt(w.shape[0]))
+    # check if number of filters can be arranged in subplots
+    x = y = int(size) + 1 if size % 1 != 0 else int(size)
     plt.figure(figsize=(20, 17))
     for j, filter in enumerate(w):
-      plt.subplot(x, y, j+1) # use shape of filter to define subplot
-      plt.imshow(filter[0, :, :].cpu().detach(), cmap='viridis') 
+      plt.subplot(x, y, j+1)  # use shape of filter to define subplot
+      plt.imshow(filter[0, :, :].cpu().detach(), cmap='viridis')
       plt.axis('off')
       plt.savefig(F'Conv_{i}_Filter.png')
     plt.close()
@@ -64,7 +80,7 @@ def extractConvLayers(model):
 
 
 def hook_fn(module, _, output):
-  vis[module] = output 
+  vis[module] = output
 
 
 def get_layers(model):
@@ -79,27 +95,34 @@ def get_layers(model):
 
 def save_scatter_plot(features, proj, num_categories, name):
     plt.figure(figsize=(15, 15))
-    ax = plt.subplot(1,1,1)
+    ax = plt.subplot(1, 1, 1)
     index_start = 0
     counter = 0
     for cat, val in features.items():
-        index_end = index_start + val.size(0) - 1 # calculate end of category index
-        proj_cat = proj[index_start:index_end, :] # extract only values for one category
-        ax.scatter(proj_cat[:, 0], proj_cat[:, 1], c=utilities.colors[counter], label = cat, alpha=0.5, marker='+')
+        # calculate end of category index
+        index_end = index_start + val.size(0) - 1
+        # extract only values for one category
+        proj_cat = proj[index_start:index_end, :]
+        ax.scatter(proj_cat[:, 0], proj_cat[:, 1],
+                   c=utilities.colors[counter], label=cat, alpha=0.5, marker='+')
         index_start = index_end + 1
         counter += 1
-    
+
     box = ax.get_position()
-    ax.set_position([box.x0, box.y0 + box.height * 0.1, box.width, box.height * 0.9]) # Shrink current axis's height by 10% on the bottom
-    lgd = ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=int(num_categories / 8))
+    # Shrink current axis's height by 10% on the bottom
+    ax.set_position([box.x0, box.y0 + box.height *
+                    0.1, box.width, box.height * 0.9])
+    lgd = ax.legend(loc='upper center', bbox_to_anchor=(
+        0.5, -0.05), ncol=int(num_categories / 8))
     plt.savefig(F'{name}.png', bbox_extra_artists=(lgd,), bbox_inches='tight')
     plt.close()
 
 
 def normalize_features(features):
-  vals = torch.cat(tuple(features.values()), dim=0) # combine features into one tensor
-  norm = torch.linalg.norm(vals,dim=0) # compute norm over the columns
-  tol = 1e-12 # tolerance
+  # combine features into one tensor
+  vals = torch.cat(tuple(features.values()), dim=0)
+  norm = torch.linalg.norm(vals, dim=0)  # compute norm over the columns
+  tol = 1e-12  # tolerance
 
   # check if computed norm is greater than tolerance to prevent divsion by zero
   norm[norm < tol] = tol
@@ -114,7 +137,7 @@ def normalize(features, norm):
 
 
 def main():
-  parsed_args = parse_arguments()
+	parsed_args = parse_arguments()
 
   features = torch.load(parsed_args.features)
   features_test = torch.load(parsed_args.features_test)
