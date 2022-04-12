@@ -9,13 +9,13 @@ This thesis examines different transfer learning approaches for image classifica
 The following approaches are implemented in `learning.py`:
 
 #### Pre-Training
-  1. Feature Extraction of the pre-trained network and used for a shallow learning algo or similarity metric ['cosine', 'mean', 'kNN', 'svm']
+  1. Feature Extraction of the pre-trained network and used for a shallow learning algo or similarity metric ['cosine', 'mean', 'knn', 'svm']
 #### Fine-Tuning
   1. The pre-trained network is fine-tuned on the training set of the small dataset, and finally used as a predictor for the test dataset.
-  2. Feature Extraction of the pre-trained network and used for a shallow learning algo or similarity metric ['cosine', 'mean', 'kNN', 'svm']
+  2. Feature Extraction of the pre-trained network and used for a shallow learning algo or similarity metric ['cosine', 'mean', 'knn', 'svm']
 #### Adaptive Network
   1. The parameters in the trained network will be frozen and a adapter network will be trained with the small dataset.
-  2. Feature Extraction of the adapter network and used for a shallow learning algo or similarity metric ['cosine', 'mean', 'kNN', 'svm']
+  2. Feature Extraction of the adapter network and used for a shallow learning algo or similarity metric ['cosine', 'mean', 'knn', 'svm']
 
 ### Deep Features Gallery Approaches
 Different approaches when using the deep features in the image classification task are available:

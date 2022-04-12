@@ -50,16 +50,16 @@ class FEModel(models.BaseModel):
     min_distance = 1e8 # init high value
     index = 0
     for predicted_cat, feature in features.items():
-      if params.cosine or params.neighbor:
+      if params.cosine or params.knn:
         cosine_matrix = self.__cos_similarity(feature.detach().cpu().numpy(), X_test.detach().cpu().numpy().reshape(1, -1)) # compute cosine of all existing features
         dist = 1.0 - numpy.max(cosine_matrix) # take the maximum similarity value and transform it to similarity distance
-        if params.neighbor:
+        if params.knn:
           distances[index, :len(feature)] = cosine_matrix.reshape(len(feature)) # persist all computed distances, will be used for kNN algo
           labels.append(predicted_cat) # persist all categories, will be used for kNN algo
       elif params.mean:
         dist = 1.0 - self.__cos_similarity(torch.mean(feature, 0).detach().cpu().numpy().reshape(1, -1), X_test.detach().cpu().numpy().reshape(1, -1))[0,0] # compute similarity distance
       else:
-        raise argparse.ArgumentTypeError('Metric not defined, use one of the following: (--mean, --cosine, --neighbor --svm)')
+        raise argparse.ArgumentTypeError('Metric not defined, use one of the following: (--mean, --cosine, --knn --svm)')
 
       if dist < min_distance:
         min_distance = dist
@@ -67,7 +67,7 @@ class FEModel(models.BaseModel):
 
       index += 1
 
-    if params.neighbor:
+    if params.knn:
       occurence_count = self.__kNN(distances, params.k) # search the k-highest value
 
       if (len(numpy.where(occurence_count==occurence_count.max())) == 1 and params.k > 1): # check if a definitive winner has been found

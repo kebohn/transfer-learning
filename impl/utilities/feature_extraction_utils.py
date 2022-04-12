@@ -89,7 +89,7 @@ def predict(model, params, features=[], test_loader=[]):
   res["labels"] = []
   res["predictions"] = []
  
-  if params.neighbor:
+  if params.knn:
     max_number_features = max([len(f) for f in features.values()]) # variable with maximum number of features for one category
     distances = numpy.zeros((len(features), max_number_features)) # preserve all distances here
 
