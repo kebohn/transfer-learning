@@ -38,7 +38,7 @@ def extract(model, train_loader):
   res = {}
   
   # iterate over training data
-  for data, _, names in train_loader:
+  for data, _, names, _ in train_loader:
     features = model.extract(data) # extract features for whole batch
     cat_set = set(names)
     names_arr = numpy.array(names)
@@ -105,7 +105,7 @@ def predict(model, params, features=[], test_loader=[]):
 
     svmModel.fit(X_train, y_train)
 
-  for test_data, _, test_name in test_loader:
+  for test_data, _, test_name, _ in test_loader:
 
     # convert tuple to string
     test_name = ''.join(test_name)

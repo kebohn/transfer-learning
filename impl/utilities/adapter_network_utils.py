@@ -46,7 +46,7 @@ def train(
     print(F'\nEpoch {epoch + 1}/{params.epochs}:')
     epoch_loss = 0
 
-    for data, targets, _ in train_loader: # iterate over training data in batches
+    for data, targets, _, _ in train_loader: # iterate over training data in batches
       data = data.to(utilities.get_device())
       targets = targets.to(utilities.get_device())
 
@@ -82,7 +82,7 @@ def train(
     adapter_model.eval()
 
     with torch.no_grad():
-      for x, y, _ in valid_loader:
+      for x, y, _, _ in valid_loader:
         x = x.to(utilities.get_device())
         y = y.to(utilities.get_device())
 
@@ -159,7 +159,7 @@ def test(model, test_loader):
   num_samples = 0
   model.eval()
   with torch.no_grad():
-    for x, y, _ in test_loader:
+    for x, y, _, _ in test_loader:
       y_test_arr.extend(y.detach().cpu().tolist())
       x = x.to(utilities.get_device())
       y = y.to(utilities.get_device())

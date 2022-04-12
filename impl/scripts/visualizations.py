@@ -175,7 +175,7 @@ def main():
       model.cpu()
       get_layers(model)
       with torch.no_grad():
-        for img, label, name in test_loader:
+        for img, label, name, _ in test_loader:
           print(F"Save Feature maps for category {label} -> {name[0]}")
           _ = model(img)
           break

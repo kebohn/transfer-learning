@@ -15,8 +15,8 @@ def main():
   current_size = parsed_args.step
   res = {}
 
-  # load test and validation data
-  print("Prepare test and validation dataset...")
+  # load data
+  print("Prepare datasets...")
   valid_data = data.CustomImageDataset('data.csv', parsed_args.d_valid, utilities.test_transforms())
   test_data = data.CustomImageDataset('data.csv', parsed_args.d_test, utilities.test_transforms())
 
@@ -32,6 +32,11 @@ def main():
   # extract validation and test features
   valid_features = utilities.extract(extraction_model, valid_loader)
   test_features = utilities.extract(extraction_model, test_loader)
+
+  # find k best gallery images per category
+  if parsed_args.k_gallery:
+    pass
+
 
   # increase current size per category by step_size after every loop
   while(current_size <= parsed_args.max_size):

@@ -7,4 +7,3 @@ from .colors import colors
 from .roc_auc import *
 from .hist import *
 from .confusion_matrix import *
-from .gallery import *

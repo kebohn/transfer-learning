@@ -23,7 +23,7 @@ class CustomImageDataset(Dataset):
     name = self.img_labels.iloc[idx, 2]
     if self.transform:
         image = self.transform(image)
-    return image, label, name
+    return image, label, name, img_path
 
   
   def get_categories(self):

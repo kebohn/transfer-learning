@@ -28,7 +28,7 @@ def parse_arguments():
   parser.add_argument('--epochs', type=int, dest='epochs', default=100, help='Define number of epochs (Default: 100)')
   parser.add_argument('--lr', type=float, dest='lr', default=0.01, help='Define learning rate (Default: 0.01)')
   parser.add_argument('--momentum', type=float, dest='momentum', default=0.9, help='Define momentum parameter (Default: 0.9)')
-  parser.add_argument('--k-gallery', type=int, dest='k-gallery', default=-1, help='k-most similar features (computed with cosine distance) are used for the gallery, the selected features are excluded from training (Default: -1)')
+  parser.add_argument('--k-gallery', type=int, dest='k_gallery', default=-1, help='k-most similar features (computed with cosine distance) are used for the gallery, the selected features are excluded from training (Default: -1)')
   return parser.parse_args()
 
 
