@@ -38,6 +38,11 @@ def parse_arguments():
                         help='Directory where test data are stored (absolute dir)')
     parser.add_argument('--confusion', type=utilities.dir_path,
                         help='Directory where data for confusion matrix is stored (absolute dir)')
+    parser.add_argument('--confusion-multiple', dest='confusion_multiple', type=utilities.dir_path,
+                        help='''Directory where multiple datasets for confusion matrix is stored -
+                        This creates a stacked visualization from the diagonal confusion matrix for each dataset (absolute dir)''')
+    parser.add_argument('--k-confusion', dest='k_confusion', type=int, default=5,
+                        help='''k defines the used samples per category for confusion matrix construction (Default: 5)''')
     return parser.parse_args()
 
 
@@ -129,8 +134,12 @@ def normalize(features, norm):
 
 def main():
     parsed_args = parse_arguments()
-    features = torch.load(parsed_args.features)
-    features_test = torch.load(parsed_args.features_test)
+
+    if parsed_args.features is not None:
+        features = torch.load(parsed_args.features)
+
+    if parsed_args.features_test is not None:
+        features_test = torch.load(parsed_args.features_test)
 
     if parsed_args.dm:
 
@@ -143,21 +152,21 @@ def main():
             # stack all features from every class into one embeddings tensor
             embeddings = torch.cat((embeddings, f))
 
-    # invoke t-SNE on stacked feature embedding
-    tsne = TSNE(n_components=2, perplexity=40, init='pca',
-                learning_rate='auto', verbose=1)
-    tsne_proj = tsne.fit_transform(embeddings)
+        # invoke t-SNE on stacked feature embedding
+        tsne = TSNE(n_components=2, perplexity=40, init='pca',
+                    learning_rate='auto', verbose=1)
+        tsne_proj = tsne.fit_transform(embeddings)
 
-    # visualize t-sne with coloring of correct class
-    save_scatter_plot(features, tsne_proj, num_categories, 'tsne')
+        # visualize t-sne with coloring of correct class
+        save_scatter_plot(features, tsne_proj, num_categories, 'tsne')
 
-    # invoke pca algo
-    pca = PCA(n_components=2)
-    pca_proj = pca.fit_transform(embeddings)
-    print(F'Variance ratio: {pca.explained_variance_ratio_}')
+        # invoke pca algo
+        pca = PCA(n_components=2)
+        pca_proj = pca.fit_transform(embeddings)
+        print(F'Variance ratio: {pca.explained_variance_ratio_}')
 
-    # visualize pca with coloring of correct class
-    save_scatter_plot(features, pca_proj, num_categories, 'pca')
+        # visualize pca with coloring of correct class
+        save_scatter_plot(features, pca_proj, num_categories, 'pca')
 
     if parsed_args.roc:
         utilities.perform_roc(features, features_test)
@@ -169,8 +178,15 @@ def main():
     if parsed_args.confusion is not None:
         res_data = utilities.load_json_file(parsed_args.confusion)
 
-        # only test on 70 images per class at the moment
-        utilities.save_confusion_matrix(res_data["5"])
+        # additionally define how many samples per class should be used for the confusion matrix
+        utilities.save_confusion_matrix(res_data[str(parsed_args.k_confusion)])
+
+    if parsed_args.confusion_multiple:
+        res_data = utilities.load_multiple_json_files(parsed_args.confusion_multiple)
+
+        # additionally define how many samples per class should be used for the confusion matrix
+        res = {k:v[str(parsed_args.k_confusion)] for k,v in res_data.items()}
+        utilities.save_stacked_confusion_matrices(res)
 
     if parsed_args.filters or parsed_args.maps:
         # load test data

@@ -38,9 +38,11 @@ def parse_arguments():
     parser.add_argument('--unbalanced', dest='unbalanced', action='store_true',
                         help='Define if dataset is unbalanced (Default: false)')
     parser.add_argument('--early-stop', dest='early_stop', action='store_true',
-                        help='Define if training should be stopped when plateau is reached, it uses Validation loss per default (Default: false)')
+                        help='''Define if training should be stopped when plateau is reached,
+                        it uses Validation loss per default (Default: false)''')
     parser.add_argument('--auc', dest='auc', action='store_true',
-                        help='Area under the curve scheme for early stopping, if false validation loss will be used - early-stop variable must be set to true (Default: false)')
+                        help='''Area under the curve scheme for early stopping, if false validation loss will be used
+                        - early-stop variable must be set to true (Default: false)''')
     parser.add_argument('--adaptive', dest='adaptive',
                         action='store_true', help='Use adaptive network scheme')
     parser.add_argument('--pretrain', dest='pretrain',
@@ -54,7 +56,8 @@ def parse_arguments():
     parser.add_argument('--momentum', type=float, dest='momentum',
                         default=0.9, help='Define momentum parameter (Default: 0.9)')
     parser.add_argument('--k-gallery', dest='k_gallery', action='store_true',
-                        help='k-most similar features (computed with cosine distance) are used for the gallery, the selected features are excluded from training (Default: -1)')
+                        help='''k-most similar features (computed with cosine distance) are used for the gallery,
+                        the selected features are excluded from training (Default: -1)''')
     return parser.parse_args()
 
 
@@ -80,7 +83,15 @@ def save_json_file(name, content):
 
 
 def load_json_file(path):
-    f = open(path, "r")
-    data = json.loads(f.read())
-    f.close()
+    with open(path, "r") as file:
+        data = json.loads(file.read())
+    return data
+
+
+def load_multiple_json_files(path):
+    data = {}
+    for file in os.listdir(path):
+        if file.endswith('.json'):
+            with open(F"{path}{file}", "r") as f:
+                data[file] = json.loads(f.read())
     return data

@@ -84,3 +84,21 @@ def save_confusion_matrix(res_data):
     plt.tick_params(left=False)
     plt.savefig("confusion_matrix.png")
     plt.close()
+
+
+def save_stacked_confusion_matrices(res):
+    confusions = {}
+    for dataset, values in res.items():
+        print(dataset)
+        
+        # create confusion matrix
+        labels = list(numpy.unique(numpy.array(values["labels"])))
+        confusion = confusion_matrix(
+            values["labels"], values["predictions"], labels=labels)
+
+        # extract only diagonals the actual predicted classes
+        confusions[dataset] = numpy.diag(confusion)
+
+    # add all confusion diagonals together in one numpy array
+    res = numpy.array(list(confusions.values()))
+    print(res.shape)

@@ -57,7 +57,7 @@ def main():
     loaded_model = torchvision.models.resnet50(pretrained=True)
     extraction_model = models.FEModel(model=loaded_model, device=utilities.get_device())
 
-    # extract validation and test features for adaptive model
+    # extract validation, test and gallery features for adaptive model
     if parsed_args.adaptive:
         adaptive_model = models.AdaptiveModel(
             num_categories=test_data.get_categories()
@@ -123,7 +123,7 @@ def main():
                 current_size=current_size
             )
 
-            # use Feature Extraction Model
+            # use Feature Extraction Model to prepare input data for adaptive model
             if parsed_args.adaptive:
 
                 # normalize test and permanent gallery data
