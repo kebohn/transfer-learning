@@ -40,8 +40,8 @@ def extract(model, train_loader):
     res = {}
 
     # iterate over training data
-    for data, _, names, _ in train_loader:
-        features = model.extract(data)  # extract features for whole batch
+    for values, _, names, _ in train_loader:
+        features = model.extract(values)  # extract features for whole batch
         cat_set = set(names)
         names_arr = numpy.array(names)
         for category in cat_set:  # iterate over all distinctive categories in the batch
@@ -68,10 +68,11 @@ def save_training_size_plot(res_dir, res):
     plt.close()
 
 
-def class_acc(data, category):
+def class_acc(values, category):
     print(
-        F"Classified {data[0]:2} of {data[1]} images ({100 * data[0] / data[1]:6.2f}%) with {category}")
-    return data[0] / data[1]
+        F"Classified {values[0]:2} of {values[1]} images ({100 * values[0] / values[1]:6.2f}%) with {category}"
+    )
+    return values[0] / values[1]
 
 
 def total_acc(categories, class_accs, params):
@@ -105,16 +106,16 @@ def predict(model, params, features=[], test_loader=[]):
         distances = numpy.zeros((len(features), max_number_features))
 
     if params.svm:
-        svmModel = models.SVMModel(device="not used here")
+        svm_model = models.SVMModel(device="not used here")
         y_train = []
-        X_train = []
+        x_train = []
         features_norm = model.normalize_train(features)
         for key, val in features_norm.items():
             y_train.extend(numpy.repeat(key, val.size()[0]))
             tmp = numpy.split(val.detach().cpu().numpy(), val.size()[0])
-            X_train.extend([i.flatten() for i in tmp])
+            x_train.extend([i.flatten() for i in tmp])
 
-        svmModel.fit(X_train, y_train)
+        svm_model.fit(x_train, y_train)
 
     for test_data, _, test_name, _ in test_loader:
 
@@ -125,16 +126,16 @@ def predict(model, params, features=[], test_loader=[]):
         res["labels"].append(test_name)
 
         # extract test feature from model
-        X_test = model.extract(test_data)
+        x_test = model.extract(test_data)
 
         if params.svm:
             # normalize test data with norm from training data
-            X_test_norm = model.normalize(X_test)
-            y_test = svmModel.predict(
-                X_test_norm.detach().cpu().reshape(1, -1))
+            x_test_norm = model.normalize(x_test)
+            y_test = svm_model.predict(
+                x_test_norm.detach().cpu().reshape(1, -1))
         else:
             y_test, _ = model.predict(
-                X_test, features, distances, labels, params)
+                x_test, features, distances, labels, params)
 
         # add test prediction to res array
         res["predictions"].append(y_test)

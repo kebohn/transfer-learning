@@ -1,63 +1,91 @@
 #!/usr/bin/env python3
-import data
-import models
-import utilities
 import copy
 import torchvision
 import torch
-import sys
-sys.path.append("..")  # append the path of the parent directory
+import data, models, utilities
 
 
 def main():
     parsed_args = utilities.parse_arguments()
     current_size = parsed_args.step
     res = {}
+    valid_features = {}
 
-    # load data
     print("Prepare datasets...")
     valid_data = data.CustomImageDataset(
-        'data.csv', parsed_args.d_valid, utilities.test_transforms())
+        'data.csv',
+        parsed_args.d_valid,
+        utilities.test_transforms()
+    )
     test_data = data.CustomImageDataset(
-        'data.csv', parsed_args.d_test, utilities.test_transforms())
+        'data.csv',
+        parsed_args.d_test,
+        utilities.test_transforms()
+    )
 
     valid_loader = torch.utils.data.DataLoader(
-        dataset=valid_data, batch_size=10, shuffle=False, num_workers=8)
+        dataset=valid_data,
+        batch_size=10,
+        shuffle=False,
+        num_workers=8
+    )
     test_loader = torch.utils.data.DataLoader(
-        dataset=test_data, batch_size=10 if parsed_args.adaptive else 1, shuffle=False, num_workers=8)
+        dataset=test_data,
+        batch_size=10 if parsed_args.adaptive else 1,
+        shuffle=False,
+        num_workers=8
+    )
+
+    # load gallery data - gallery.csv must be generated beforehand
+    if parsed_args.k_gallery and parsed_args.extract:
+
+        gallery_data = data.CustomImageDataset(
+            'gallery.csv',
+            parsed_args.d,
+            utilities.test_transforms()
+        )
+
+        gallery_loader = torch.utils.data.DataLoader(
+            dataset=gallery_data,
+            batch_size=len(gallery_data),
+            shuffle=False,
+            num_workers=8
+        )
 
     # load different models
     print("Load models...")
-    loaded_model = torchvision.models.resnet50(
-        pretrained=True)  # load pretrained model resnet-50
-    extraction_model = models.FEModel(
-        model=loaded_model, device=utilities.get_device())
-    adaptive_model = models.AdaptiveModel(
-        num_categories=test_data.get_categories())
+    loaded_model = torchvision.models.resnet50(pretrained=True)
+    extraction_model = models.FEModel(model=loaded_model, device=utilities.get_device())
 
-    # extract validation and test features
-    valid_features = utilities.extract(extraction_model, valid_loader)
-    test_features = utilities.extract(extraction_model, test_loader)
-
-    # load permanent gallery images - gallery.csv must be generated beforehand
-    if parsed_args.k_gallery and parsed_args.extract:
-        gallery_data = data.CustomImageDataset(
-            'gallery.csv', parsed_args.d, utilities.test_transforms())
-        gallery_loader = torch.utils.data.DataLoader(
-            dataset=valid_data, batch_size=len(gallery_data), shuffle=False, num_workers=8)
+    # extract validation and test features for adaptive model
+    if parsed_args.adaptive:
+        adaptive_model = models.AdaptiveModel(
+            num_categories=test_data.get_categories()
+        )
+        valid_features = utilities.extract(extraction_model, valid_loader)
+        test_features = utilities.extract(extraction_model, test_loader)
+        gallery_features = utilities.extract(extraction_model, gallery_loader)
 
     # increase current size per category by step_size after every loop
-    while(current_size <= parsed_args.max_size):
+    while current_size <= parsed_args.max_size:
         print(F'Using {current_size} images per category...')
 
         # clear cache after each iteration
         torch.cuda.empty_cache()
 
         # load training data
-        train_data = data.CustomImageDataset('data.csv' if not parsed_args.k_gallery else 'training.csv', parsed_args.d, utilities.test_transforms(
-        ) if parsed_args.pretrain else utilities.train_transforms(), current_size)
+        train_data = data.CustomImageDataset(
+            'training.csv' if parsed_args.k_gallery else 'data.csv',
+            parsed_args.d,
+            utilities.test_transforms() if parsed_args.pretrain else utilities.train_transforms(),
+            current_size
+        )
         train_loader = torch.utils.data.DataLoader(
-            dataset=train_data, batch_size=10, shuffle=False, num_workers=8)
+            dataset=train_data,
+            batch_size=10,
+            shuffle=False,
+            num_workers=8
+        )
 
         # training scheme only when we use the adaptive model or fine-tune the loaded model
         if parsed_args.adaptive or parsed_args.finetune:
@@ -98,14 +126,26 @@ def main():
             # use Feature Extraction Model
             if parsed_args.adaptive:
 
-                # normalize test data
-                test_features_norm = extraction_model.normalize_test(
-                    test_features)
+                # normalize test and permanent gallery data
+                test_features_norm = extraction_model.normalize_test(test_features)
+                gallery_features_norm = extraction_model.normalize_test(gallery_features)
 
                 # handle test features like a dataset
-                test_data = data.FeatureDataset(test_features_norm)
+                test_data_adaptive = data.FeatureDataset(test_features_norm)
                 test_loader = torch.utils.data.DataLoader(
-                    dataset=test_data, batch_size=1, shuffle=False)
+                    dataset=test_data_adaptive,
+                    batch_size=1,
+                    shuffle=False
+                )
+
+                # handle permanent gallery features like a dataset
+                gallery_data_adaptive = data.FeatureDataset(gallery_features_norm)
+                gallery_loader = torch.utils.data.DataLoader(
+                    dataset=gallery_data_adaptive,
+                    batch_size=len(gallery_data_adaptive),
+                    shuffle=False,
+                    num_workers=8
+                )
 
         # extract features from model and use this with another specified metric to predict the categories
         if parsed_args.extract:
@@ -114,29 +154,31 @@ def main():
 
                 # define trained adaptive extraction model
                 learned_extraction_model = models.FEModel(
-                    model=model, device=utilities.get_device())
+                    model=model,
+                    device=utilities.get_device()
+                )
 
                 # extract features from trained model
-                tr_features = utilities.extract(
-                    learned_extraction_model, train_features_loader)
-                te_features = utilities.extract(
-                    learned_extraction_model, test_loader)
+                tr_features = utilities.extract(learned_extraction_model, train_features_loader)
+                te_features = utilities.extract(learned_extraction_model, test_loader)
+                if parsed_args.k_gallery:
+                    ga_features = utilities.extract(learned_extraction_model, gallery_loader)
 
             else:
                 tr_features = utilities.extract(extraction_model, train_loader)
                 te_features = utilities.extract(extraction_model, test_loader)
+                if parsed_args.k_gallery:
+                    ga_features = utilities.extract(extraction_model, gallery_loader)
 
             # save features
-            torch.save(
-                tr_features, F'{parsed_args.results}features_train_size_{current_size}.pt')
-            torch.save(
-                te_features, F'{parsed_args.results}features_test_size_{current_size}.pt')
+            torch.save(tr_features, F'{parsed_args.results}features_train_size_{current_size}.pt')
+            torch.save(te_features, F'{parsed_args.results}features_test_size_{current_size}.pt')
 
             # run prediction
             res[current_size] = utilities.predict(
                 model=extraction_model if parsed_args.pretrain else learned_extraction_model,
                 params=parsed_args,
-                features=tr_features,
+                features=ga_features if parsed_args.k_gallery else tr_features,
                 test_loader=test_loader,
             )
 

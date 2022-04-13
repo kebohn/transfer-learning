@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
+import sys
+sys.path.append("..")  # append the path of the parent directory
 import csv
 import argparse
 import os
-import data
-import utilities
+import data, utilities
 import numpy
 from sklearn import metrics
 import torch
-import sys
-sys.path.append("..")  # append the path of the parent directory
 
 
 def parse_arguments():
@@ -47,10 +46,10 @@ def create_k_best_gallery(img_loader, k, path):
         remaining_writer = csv.writer(remaining_f, delimiter=',')
         remaining_writer.writerow(["file", "category", "name"])
 
-        for data, targets, labels, paths in img_loader:  # whole img data in one batch -> only one iteration
+        for values, targets, labels, paths in img_loader:  # whole img data in one batch -> only one iteration
 
             # reshape images into 2D tensor
-            all_samples = torch.reshape(data, (data.size(0), -1))
+            all_samples = torch.reshape(values, (values.size(0), -1))
 
             # compute cosine similarity matrix
             sim = metrics.pairwise.cosine_similarity(all_samples)
