@@ -1,22 +1,30 @@
+import copy
+import argparse
 import torch
 import numpy
-import argparse
 import models
 
 
 class FEModel(models.BaseModel):
-    def __init__(self, model, device):
+    def __init__(self, model, model_type, device):
         super().__init__(device)
-        self.model = model
+        self.model = copy.deepcopy(model)
+
         self.tol = 1e-12  # tolerance
 
         # replace last fully connected layer from model with Identity Layer
-        if model is not None:
-            modules = list(self.model.children())
-            modules[-1] = models.IdentityModel()
-            self.model = torch.nn.Sequential(*modules)
-            self.model.eval()  # evaluation mode
-            self.model.to(device)  # save on GPU
+        if model_type == 'resnet50':
+            self.model.fc = models.IdentityModel()
+        elif model_type == 'adaptive':
+            self.model.fc3 = models.IdentityModel()
+        else:
+            if isinstance(model.classifier, torch.nn.Sequential):
+                self.model.classifier[-1] = models.IdentityModel()
+            else:
+                self.model.classifier = models.IdentityModel()
+
+        self.model.eval()  # evaluation mode
+        self.model.to(device)  # save on GPU
 
     def extract(self, img):
         with torch.no_grad():  # no training

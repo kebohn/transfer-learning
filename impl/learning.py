@@ -55,7 +55,10 @@ def main():
     # load different models
     print("Load models...")
     loaded_model = models.get_pretrained_model(parsed_args.model_type)
-    extraction_model = models.FEModel(model=loaded_model, device=utilities.get_device())
+    extraction_model = models.FEModel(
+        model=loaded_model,
+        model_type=parsed_args.model_type,
+        device=utilities.get_device())
 
     # extract validation, test and gallery features for adaptive model
     if parsed_args.adaptive:
@@ -155,6 +158,7 @@ def main():
                 # define trained adaptive extraction model
                 learned_extraction_model = models.FEModel(
                     model=model,
+                    model_type=parsed_args.model_type if parsed_args.finetune else 'adaptive',
                     device=utilities.get_device()
                 )
 

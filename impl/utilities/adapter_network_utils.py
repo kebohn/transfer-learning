@@ -115,7 +115,10 @@ def train(
 
                 # define feature extraction model for validation set
                 fe_model = models.FEModel(
-                    adapter_model, utilities.get_device())
+                    model=adapter_model,
+                    model_type=params.model_type,
+                    device=utilities.get_device()
+                )
 
                 # get all validation features
                 v_features = utilities.extract(fe_model, valid_loader)
