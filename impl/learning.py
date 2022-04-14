@@ -54,7 +54,7 @@ def main():
 
     # load different models
     print("Load models...")
-    loaded_model = torchvision.models.resnet50(pretrained=True)
+    loaded_model = models.get_pretrained_model(parsed_args.model_type)
     extraction_model = models.FEModel(model=loaded_model, device=utilities.get_device())
 
     # extract validation, test and gallery features for adaptive model
@@ -100,12 +100,9 @@ def main():
                 # must be always reinstantiated
                 model = copy.deepcopy(loaded_model)
 
-                # replace last layer with the respective amount of dataset categories
-                model.fc = torch.nn.Sequential(
-                    # TODO replace number of neurons with variable when we use other loaded models
-                    torch.nn.Linear(2048, test_data.get_categories())
-                )
-
+                # change last layer out neurons to respective number of classes from the dataset
+                models.update_last_layer(model, parsed_args.model_type, test_data.get_categories())
+                
                 # set gradients to true in order to adapt the weights during training
                 for param in model.parameters():
                     param.requires_grad = True

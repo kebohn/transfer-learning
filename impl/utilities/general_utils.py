@@ -6,7 +6,7 @@ import utilities
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description='Baseline script for transfer learning')
+        description='Script for different transfer learning approaches')
     parser.add_argument('--d', type=utilities.dir_path,
                         help='Directory where files are located (absolute dir)')
     parser.add_argument('--d_test', type=utilities.dir_path,
@@ -32,7 +32,7 @@ def parse_arguments():
     parser.add_argument('--k', type=int, dest='k', default=5,
                         help='Define k for kNN algorithm (Default: 5)')
     parser.add_argument('--step', type=int, dest='step', default=5,
-                        help='Define step with which training set should be decreased (Default: k=5)')
+                        help='Define step with which training set should be increased (Default: k=5)')
     parser.add_argument('--max-size', type=int, dest='max_size', default=5,
                         help='Define maximum samples per class (Default: k=5)')
     parser.add_argument('--unbalanced', dest='unbalanced', action='store_true',
@@ -58,6 +58,9 @@ def parse_arguments():
     parser.add_argument('--k-gallery', dest='k_gallery', action='store_true',
                         help='''k-most similar features (computed with cosine distance) are used for the gallery,
                         the selected features are excluded from training (Default: -1)''')
+    parser.add_argument('--model-type', type=str, dest='model_type', default="resnet50",
+                    help='''Defines the model type that will be used for the pre-trained model, choose between
+                    following parameters: [resnet50, alexnet, vgg16, vgg19, densenet] (Default: resnet50)''')
     return parser.parse_args()
 
 
