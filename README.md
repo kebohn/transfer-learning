@@ -27,7 +27,7 @@ Different approaches when using the deep features in the image classification ta
 #### Example Pre-Trained Approach with extracted Deep Features using Cosine distance:
 
 ```
-python3 learning.py --d /local/scratch/bohn/datasets/context_virus/train/ --d_test /local/scratch/bohn/datasets/context_virus/test/ --d_validation /local/scratch/bohn/datasets/context_virus/test/ --pretrain --cosine --extract
+python3 learning.py --d /local/scratch/bohn/datasets/context_virus/train/ --d-test /local/scratch/bohn/datasets/context_virus/test/ --d-validation /local/scratch/bohn/datasets/context_virus/test/ --pretrain --cosine --extract
 ```
 
 Using other approaches and metrics explore the functionality by hitting ```python3 learning.py --help```

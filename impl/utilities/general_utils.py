@@ -9,9 +9,9 @@ def parse_arguments():
         description='Script for different transfer learning approaches')
     parser.add_argument('--d', type=utilities.dir_path,
                         help='Directory where files are located (absolute dir)')
-    parser.add_argument('--d_test', type=utilities.dir_path,
+    parser.add_argument('--d-test', type=utilities.dir_path, dest='d_test',
                         help='Directory where test files are located (absolute dir)')
-    parser.add_argument('--d_valid', type=utilities.dir_path,
+    parser.add_argument('--d-valid', type=utilities.dir_path, dest='d_valid',
                         help='Directory where validation files are located (absolute dir)')
     parser.add_argument('--model', type=utilities.dir_path,
                         help='Directory where model is located (absolute dir)')
@@ -43,6 +43,9 @@ def parse_arguments():
     parser.add_argument('--auc', dest='auc', action='store_true',
                         help='''Area under the curve scheme for early stopping, if false validation loss will be used
                         - early-stop variable must be set to true (Default: false)''')
+    parser.add_argument('--threshold', type=int, dest='threshold', default=10,
+                        help='''Threshold counter which defines how often validation loss or auc can be exceeded
+                        before model training is automatically stopped - early-stop variable must be set to true to take an effect (Default: 10)''')
     parser.add_argument('--adaptive', dest='adaptive',
                         action='store_true', help='Use adaptive network scheme')
     parser.add_argument('--pretrain', dest='pretrain',
@@ -59,8 +62,8 @@ def parse_arguments():
                         help='''k-most similar features (computed with cosine distance) are used for the gallery,
                         the selected features are excluded from training (Default: -1)''')
     parser.add_argument('--model-type', type=str, dest='model_type', default="resnet50",
-                    help='''Defines the model type that will be used for the pre-trained model, choose between
-                    following parameters: [resnet50, alexnet, vgg16, vgg19, densenet] (Default: resnet50)''')
+                        help='''Defines the model type that will be used for the pre-trained model, choose between
+                        following parameters: [resnet50, alexnet, vgg16, vgg19, densenet] (Default: resnet50)''')
     return parser.parse_args()
 
 

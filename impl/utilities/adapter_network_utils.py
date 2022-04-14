@@ -29,9 +29,8 @@ def train(
     num_correct = 0
     num_samples = 0
 
-    # early stopping: when the validation error in the last n epochs does not change we quit training
+    # early stopping counter: when the validation error in the last n epochs does not change we quit training
     es_counter = 0
-    es_threshold = 30
 
     # train network
     print("Learning Model...")
@@ -133,9 +132,9 @@ def train(
                 es_counter = incease_early_stop_counter(valid_loss, es_counter)
 
             print(
-                F"Current early stopping threshold counter {es_counter}/{es_threshold}")
+                F"Current early stopping threshold counter {es_counter}/{params.threshold}")
 
-            if es_counter == es_threshold:
+            if es_counter == params.threshold:
                 print("Model starts to overfit, training stopped")
                 break
 
