@@ -37,7 +37,7 @@ def main():
     )
 
     # load gallery data - gallery.csv must be generated beforehand
-    if parsed_args.k_gallery and parsed_args.extract:
+    if parsed_args.k_gallery:
 
         gallery_data = data.CustomImageDataset(
             'gallery.csv',
@@ -59,12 +59,15 @@ def main():
 
     # extract validation, test and gallery features for adaptive model
     if parsed_args.adaptive:
+        last_layer = models.get_last_layer(loaded_model, parsed_args.model_type)
         adaptive_model = models.AdaptiveModel(
+            in_features=last_layer.in_features,
             num_categories=test_data.get_categories()
         )
         valid_features = utilities.extract(extraction_model, valid_loader)
         test_features = utilities.extract(extraction_model, test_loader)
-        gallery_features = utilities.extract(extraction_model, gallery_loader)
+        if parsed_args.k_gallery:
+            gallery_features = utilities.extract(extraction_model, gallery_loader)
 
     # increase current size per category by step_size after every loop
     while current_size <= parsed_args.max_size:
@@ -122,10 +125,8 @@ def main():
 
             # use Feature Extraction Model to prepare input data for adaptive model
             if parsed_args.adaptive:
-
-                # normalize test and permanent gallery data
+                # normalize test data
                 test_features_norm = extraction_model.normalize_test(test_features)
-                gallery_features_norm = extraction_model.normalize_test(gallery_features)
 
                 # handle test features like a dataset
                 test_data_adaptive = data.FeatureDataset(test_features_norm)
@@ -134,15 +135,17 @@ def main():
                     batch_size=1,
                     shuffle=False
                 )
-
-                # handle permanent gallery features like a dataset
-                gallery_data_adaptive = data.FeatureDataset(gallery_features_norm)
-                gallery_loader = torch.utils.data.DataLoader(
-                    dataset=gallery_data_adaptive,
-                    batch_size=len(gallery_data_adaptive),
-                    shuffle=False,
-                    num_workers=8
-                )
+                if parsed_args.k_gallery:
+                    # normalize permanent gallery data
+                    gallery_features_norm = extraction_model.normalize_test(gallery_features)
+                    # handle permanent gallery features like a dataset
+                    gallery_data_adaptive = data.FeatureDataset(gallery_features_norm)
+                    gallery_loader = torch.utils.data.DataLoader(
+                        dataset=gallery_data_adaptive,
+                        batch_size=len(gallery_data_adaptive),
+                        shuffle=False,
+                        num_workers=8
+                    )
 
         # extract features from model and use this with another specified metric to predict the categories
         if parsed_args.extract:

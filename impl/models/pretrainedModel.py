@@ -20,9 +20,18 @@ def update_last_layer(model, model_type, category_size):
         model.fc = torch.nn.Linear(model.fc.in_features, category_size)
     else:
         if isinstance(model.classifier, torch.nn.Sequential):
-            print(model.classifier[-1])
             model.classifier[-1] = torch.nn.Linear(
                 model.classifier[-1].in_features, category_size)
         else:
             model.classifier = torch.nn.Linear(
                 model.classifier.in_features, category_size)
+
+
+def get_last_layer(model, model_type):
+    if model_type == 'resnet50':
+        return model.fc
+    else:
+        if isinstance(model.classifier, torch.nn.Sequential):
+            return model.classifier[-1]
+        else:
+            return model.classifier
