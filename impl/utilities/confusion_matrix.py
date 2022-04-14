@@ -47,11 +47,10 @@ def save_confusion_matrix(res_data):
     mask_confusion_diag = numpy.ma.MaskedArray(
         confusion_diag, mask=masked_array)
 
-    im = ax.imshow(confusion, cmap='jet', vmin=0,
-                   vmax=numpy.amax(confusion[:-1, :]))
+    im = ax.imshow(confusion, cmap='viridis', vmin=0, vmax=1)
     im_bottom = ax.imshow(
         confusion_bottom, cmap=mpl.colors.ListedColormap(['white']))
-    im_diag = ax.imshow(confusion_diag, cmap='jet',
+    im_diag = ax.imshow(confusion_diag, cmap='viridis',
                         vmin=0, vmax=numpy.amax(acc_row))
 
     im_bottom.set_data(mask_confusion_bottom)
@@ -89,16 +88,35 @@ def save_confusion_matrix(res_data):
 def save_stacked_confusion_matrices(res):
     confusions = {}
     for dataset, values in res.items():
-        print(dataset)
         
         # create confusion matrix
         labels = list(numpy.unique(numpy.array(values["labels"])))
         confusion = confusion_matrix(
             values["labels"], values["predictions"], labels=labels)
 
-        # extract only diagonals the actual predicted classes
-        confusions[dataset] = numpy.diag(confusion)
+        # compute rounded accuracy values per class
+        confusions[dataset]  = numpy.diag(confusion) / confusion.sum(axis=0)
 
     # add all confusion diagonals together in one numpy array
     res = numpy.array(list(confusions.values()))
-    print(res.shape)
+
+    fig = plt.figure(figsize = (len(confusion), 5))
+    ax = fig.add_subplot(111)
+
+    ax.set_xticks(numpy.arange(len(labels)))
+    ax.set_yticks(numpy.arange(len(confusions)))
+    ax.set_xticklabels(labels)
+    ax.set_yticklabels(list(confusions.keys()))
+
+    # Rotate the tick labels and set their alignment.
+    plt.setp(ax.get_xticklabels(), rotation=90,
+             ha="right", rotation_mode="anchor")
+
+    img = ax.imshow(res, cmap='viridis', vmin=0, vmax=1)
+    ax.set_title("Confusion matrix")
+    fig.tight_layout()
+    plt.tick_params(bottom=False)
+    plt.tick_params(left=False)
+
+    plt.savefig("confusion_matrix.png")
+    plt.close()
