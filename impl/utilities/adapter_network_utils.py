@@ -115,7 +115,7 @@ def train(
                 # define feature extraction model for validation set
                 fe_model = models.FEModel(
                     model=adapter_model,
-                    model_type=params.model_type,
+                    model_type=params.model_type if params.finetune else 'adaptive',
                     device=utilities.get_device()
                 )
 
