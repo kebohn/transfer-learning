@@ -98,12 +98,12 @@ def main():
 
             # define adapter model - must be always reinstantiated
             if parsed_args.adaptive:
-                # must be always reinstantiated
+                # copy the original model
                 model = copy.deepcopy(adaptive_model)
 
             # prepare loaded model for fine-tuning
             else:
-                # must be always reinstantiated
+                # copy the original model
                 model = copy.deepcopy(loaded_model)
 
                 # change last layer out neurons to respective number of classes from the dataset
@@ -118,7 +118,7 @@ def main():
             # train data with current size of samples per category
             train_features_loader, _ = utilities.train(
                 pre_trained_model=extraction_model,
-                adapter_model=model,
+                model=model,
                 train_loader=train_loader,
                 valid_loader=valid_loader,
                 valid_features=valid_features,

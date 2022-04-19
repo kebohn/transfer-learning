@@ -8,7 +8,7 @@ import models
 
 def train(
     pre_trained_model,
-    adapter_model,
+    model,
     params,
     current_size,
     valid_features={},
@@ -17,8 +17,7 @@ def train(
 ):
     # define loss and optimizer
     loss = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(
-        params=adapter_model.parameters(), lr=params.lr, momentum=params.momentum)
+    optimizer = torch.optim.SGD(params=model.parameters(), lr=params.lr, momentum=params.momentum)
 
     # define running arrays
     valid_loss = []
@@ -38,25 +37,28 @@ def train(
 
     # retrieve train and valid feature loader
     if params.adaptive:
-        train_loader, valid_loader = utilities.prepare_features_adaptive_training(
+        tr_loader, va_loader = utilities.prepare_features_adaptive_training(
             pre_trained_model,
             train_loader,
             valid_features
         )
+    else:
+        tr_loader = train_loader
+        va_loader = valid_loader
 
     for epoch in range(params.epochs):
 
         print(F'\nEpoch {epoch + 1}/{params.epochs}:')
         epoch_loss = 0
 
-        for data, targets, _, _ in train_loader:  # iterate over training data in batches
+        for data, targets, _, _ in tr_loader:  # iterate over training data in batches
             data = data.to(utilities.get_device())
             targets = targets.to(utilities.get_device())
 
             optimizer.zero_grad()
 
             # forward pass
-            scores = adapter_model(data)
+            scores = model(data)
             current_loss = loss(scores, targets)
 
             # backward pass
@@ -73,7 +75,7 @@ def train(
             num_samples += predictions.size(0)
 
         # compute training loss and accuracy and append to list
-        train_loss.append(epoch_loss / len(train_loader))
+        train_loss.append(epoch_loss / len(tr_loader))
         train_acc.append(num_correct / num_samples)
         print(
             F'Train Loss: {train_loss[-1]:.2f} | Accuracy: {train_acc[-1]:.2f}')
@@ -83,15 +85,15 @@ def train(
         epoch_loss = 0
         num_correct = 0
         num_samples = 0
-        adapter_model.eval()
+        model.eval()
 
         with torch.no_grad():
-            for x, y, _, _ in valid_loader:
+            for x, y, _, _ in va_loader:
                 x = x.to(utilities.get_device())
                 y = y.to(utilities.get_device())
 
                 # forward pass
-                scores = adapter_model(x)
+                scores = model(x)
 
                 _, predictions = scores.max(1)
                 num_correct += predictions.eq(y).sum().item()
@@ -102,7 +104,7 @@ def train(
                 epoch_loss += current_loss.item()
 
         # compute test loss and accuracy and append to list
-        current_valid_loss = epoch_loss / len(valid_loader)
+        current_valid_loss = epoch_loss / len(va_loader)
         valid_loss.append(current_valid_loss)
         valid_acc.append(num_correct / num_samples)
         print(
@@ -114,14 +116,14 @@ def train(
 
                 # define feature extraction model for validation set
                 fe_model = models.FEModel(
-                    model=adapter_model,
+                    model=model,
                     model_type=params.model_type if params.finetune else 'adaptive',
                     device=utilities.get_device()
                 )
 
                 # get all validation features
-                v_features = utilities.extract(fe_model, valid_loader)
-                t_features = utilities.extract(fe_model, train_loader)
+                v_features = utilities.extract(fe_model, va_loader)
+                t_features = utilities.extract(fe_model, tr_loader)
 
                 # compute area under the curve for validation features
                 valid_auc.append(1.0 - utilities.calculate_auc(t_features, v_features))
@@ -140,7 +142,7 @@ def train(
 
     # save model
     torch.save(
-        adapter_model.state_dict(),
+        model.state_dict(),
         F'{params.results}model_size_{current_size}_lr_{params.lr}_epochs_{epoch + 1}.pth'
     )
 
@@ -168,7 +170,7 @@ def train(
                     y_label='accuracy', title=F'{params.results}Accuracy_size_{current_size}')
 
     # return loader in case of extraction mode
-    return train_loader, valid_loader
+    return tr_loader, va_loader
 
 
 def test(model, test_loader):

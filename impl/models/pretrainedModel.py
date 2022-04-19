@@ -30,8 +30,6 @@ def update_last_layer(model, model_type, category_size):
 def get_last_layer(model, model_type):
     if model_type == 'resnet50':
         return model.fc
-    else:
-        if isinstance(model.classifier, torch.nn.Sequential):
-            return model.classifier[-1]
-        else:
-            return model.classifier
+    if isinstance(model.classifier, torch.nn.Sequential):
+        return model.classifier[-1]
+    return model.classifier
