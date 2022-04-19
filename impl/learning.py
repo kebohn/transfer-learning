@@ -9,7 +9,6 @@ def main():
     parsed_args = utilities.parse_arguments()
     current_size = parsed_args.step
     res = {}
-    valid_features = {}
 
     print("Prepare datasets...")
     valid_data = data.CustomImageDataset(
@@ -93,26 +92,10 @@ def main():
             num_workers=8
         )
 
-        # training scheme only when we use the adaptive model or fine-tune the loaded model
-        if parsed_args.adaptive or parsed_args.finetune:
-
-            # define adapter model - must be always reinstantiated
-            if parsed_args.adaptive:
-                # copy the original model
-                model = copy.deepcopy(adaptive_model)
-
-            # prepare loaded model for fine-tuning
-            else:
-                # copy the original model
-                model = copy.deepcopy(loaded_model)
-
-                # change last layer out neurons to respective number of classes from the dataset
-                models.update_last_layer(model, parsed_args.model_type, test_data.get_categories())
-                
-                # set gradients to true in order to adapt the weights during training
-                for param in model.parameters():
-                    param.requires_grad = True
-
+        # adaptive model case
+        if parsed_args.adaptive:
+            # copy the original model
+            model = copy.deepcopy(adaptive_model)
             model.to(utilities.get_device())  # save to GPU
 
             # train data with current size of samples per category
@@ -127,28 +110,46 @@ def main():
             )
 
             # use Feature Extraction Model to prepare input data for adaptive model
-            if parsed_args.adaptive:
-                # normalize test data
-                test_features_norm = extraction_model.normalize_test(test_features)
+            # normalize test data
+            test_features_norm = extraction_model.normalize_test(test_features)
 
-                # handle test features like a dataset
-                test_data_adaptive = data.FeatureDataset(test_features_norm)
-                test_loader = torch.utils.data.DataLoader(
-                    dataset=test_data_adaptive,
-                    batch_size=1,
-                    shuffle=False
+            # handle test features like a dataset
+            test_data_adaptive = data.FeatureDataset(test_features_norm)
+            test_loader = torch.utils.data.DataLoader(
+                dataset=test_data_adaptive,
+                batch_size=1,
+                shuffle=False
+            )
+            if parsed_args.k_gallery:
+                # normalize permanent gallery data
+                gallery_features_norm = extraction_model.normalize_test(gallery_features)
+                # handle permanent gallery features like a dataset
+                gallery_data_adaptive = data.FeatureDataset(gallery_features_norm)
+                gallery_loader = torch.utils.data.DataLoader(
+                    dataset=gallery_data_adaptive,
+                    batch_size=len(gallery_data_adaptive),
+                    shuffle=False,
+                    num_workers=8
                 )
-                if parsed_args.k_gallery:
-                    # normalize permanent gallery data
-                    gallery_features_norm = extraction_model.normalize_test(gallery_features)
-                    # handle permanent gallery features like a dataset
-                    gallery_data_adaptive = data.FeatureDataset(gallery_features_norm)
-                    gallery_loader = torch.utils.data.DataLoader(
-                        dataset=gallery_data_adaptive,
-                        batch_size=len(gallery_data_adaptive),
-                        shuffle=False,
-                        num_workers=8
-                    )
+
+            # fine-tuned model case
+            elif parsed_args.finetune:
+                # copy the original model
+                model = copy.deepcopy(loaded_model)
+                model.to(utilities.get_device())  # save to GPU
+
+                # change last layer out neurons to respective number of classes from the dataset
+                models.update_last_layer(model, parsed_args.model_type, test_data.get_categories())
+
+                # train data with current size of samples per category
+                train_features_loader, _ = utilities.train(
+                    pre_trained_model=extraction_model,
+                    model=model,
+                    train_loader=train_loader,
+                    valid_loader=valid_loader,
+                    params=parsed_args,
+                    current_size=current_size
+                )
 
         # extract features from model and use this with another specified metric to predict the categories
         if parsed_args.extract:

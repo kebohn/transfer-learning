@@ -46,6 +46,10 @@ def train(
         tr_loader = train_loader
         va_loader = valid_loader
 
+    if params.decay:
+        # learning rate decay 1/10 when a plateau is reached
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', patience=5, verbose=True, min_lr=1e-6)
+
     for epoch in range(params.epochs):
 
         print(F'\nEpoch {epoch + 1}/{params.epochs}:')
@@ -139,6 +143,10 @@ def train(
             if es_counter == params.threshold:
                 print("Model starts to overfit, training stopped")
                 break
+        
+            if params.decay:
+                # rate decay when validation loss / auc is not changing
+                scheduler.step(valid_auc[-1] if params.auc else current_valid_loss)
 
     # save model
     torch.save(

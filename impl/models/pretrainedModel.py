@@ -15,16 +15,22 @@ def get_pretrained_model(model_type):
         return torchvision.models.densenet121(pretrained=True)
 
 
+def set_param_gradient(layer, val):
+    for param in layer.parameters():
+        param.requires_grad = val
+
+
 def update_last_layer(model, model_type, category_size):
     if model_type == 'resnet50':
         model.fc = torch.nn.Linear(model.fc.in_features, category_size)
+        #set_param_gradient(model.fc, True)
     else:
         if isinstance(model.classifier, torch.nn.Sequential):
-            model.classifier[-1] = torch.nn.Linear(
-                model.classifier[-1].in_features, category_size)
+            model.classifier[-1] = torch.nn.Linear(model.classifier[-1].in_features, category_size)
+            #set_param_gradient(model.classifier[-1], True)
         else:
-            model.classifier = torch.nn.Linear(
-                model.classifier.in_features, category_size)
+            model.classifier = torch.nn.Linear(model.classifier.in_features, category_size)
+            #set_param_gradient(model.classifier, True)
 
 
 def get_last_layer(model, model_type):

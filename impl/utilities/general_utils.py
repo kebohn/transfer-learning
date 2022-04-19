@@ -46,6 +46,8 @@ def parse_arguments():
     parser.add_argument('--threshold', type=int, dest='threshold', default=10,
                         help='''Threshold counter which defines how often validation loss or auc can be exceeded
                         before model training is automatically stopped - early-stop variable must be set to true to take an effect (Default: 10)''')
+    parser.add_argument('--decay', dest='decay', action='store_true',
+                        help='''Enable Learning Rate Decay when validation loss / auc is not changing (Default: false)''')
     parser.add_argument('--adaptive', dest='adaptive',
                         action='store_true', help='Use adaptive network scheme')
     parser.add_argument('--pretrain', dest='pretrain',
