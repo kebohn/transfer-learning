@@ -1,6 +1,7 @@
 import os
 import argparse
 import json
+import glob
 import utilities
 
 
@@ -13,10 +14,6 @@ def parse_arguments():
                         help='Directory where test files are located (absolute dir)')
     parser.add_argument('--d-valid', type=utilities.dir_path, dest='d_valid',
                         help='Directory where validation files are located (absolute dir)')
-    parser.add_argument('--model', type=utilities.dir_path,
-                        help='Directory where model is located (absolute dir)')
-    parser.add_argument('--features', type=utilities.dir_path,
-                        help='Directory where features are located (absolute dir)')
     parser.add_argument('--results', type=utilities.dir_path,
                         help='Directory where results should be stored (absolute dir)')
     parser.add_argument('--extract', dest='extract',
@@ -66,6 +63,8 @@ def parse_arguments():
     parser.add_argument('--model-type', type=str, dest='model_type', default="resnet50",
                         help='''Defines the model type that will be used for the pre-trained model, choose between
                         following parameters: [resnet50, alexnet, vgg16, vgg19, densenet] (Default: resnet50)''')
+    parser.add_argument('--load', type=utilities.dir_path, dest='load',
+                    help='''Directory where model and features are stored''')
     return parser.parse_args()
 
 
@@ -103,3 +102,7 @@ def load_multiple_json_files(path):
             with open(F"{path}{file}", "r") as f:
                 data[file] = json.loads(f.read())
     return data
+
+
+def find_file_path(params, current_size):
+    return glob.glob(F"{params.load}model_size_{current_size}_lr_{params.lr}_*.pth")[0] # return single model path with wildcard at the end

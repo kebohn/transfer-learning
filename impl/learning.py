@@ -95,18 +95,28 @@ def main():
         if parsed_args.adaptive:
             # copy the original model
             model = copy.deepcopy(adaptive_model)
-            model.to(utilities.get_device())  # save to GPU
 
-            # train data with current size of samples per category
-            train_features_loader, _ = utilities.train(
-                pre_trained_model=extraction_model,
-                model=model,
-                train_loader=train_loader,
-                valid_loader=valid_loader,
-                valid_features=valid_features,
-                params=parsed_args,
-                current_size=current_size
-            )
+            # load model from disk
+            if parsed_args.load is not None:
+                path = utilities.find_file_path(parsed_args, current_size)
+                model.load_state_dict(torch.load(path))
+                model.to(utilities.get_device())  # save to GPU
+                train_features_loader, _ = utilities.prepare_features_adaptive_training(extraction_model, train_loader, valid_features)
+
+            # train model from scratch
+            else:
+                model.to(utilities.get_device())  # save to GPU
+
+                # train data with current size of samples per category
+                train_features_loader, _ = utilities.train(
+                    pre_trained_model=extraction_model,
+                    model=model,
+                    train_loader=train_loader,
+                    valid_loader=valid_loader,
+                    valid_features=valid_features,
+                    params=parsed_args,
+                    current_size=current_size
+                )
 
             # use Feature Extraction Model to prepare input data for adaptive model
             # normalize test data
@@ -138,17 +148,25 @@ def main():
 
             # change last layer out neurons to respective number of classes from the dataset
             models.update_last_layer(model, parsed_args.model_type, test_data.get_categories())
-            model.to(utilities.get_device())  # save to GPU
 
-            # train data with current size of samples per category
-            train_features_loader, _ = utilities.train(
-                pre_trained_model=extraction_model,
-                model=model,
-                train_loader=train_loader,
-                valid_loader=valid_loader,
-                params=parsed_args,
-                current_size=current_size
-            )
+            # load model from disk
+            if parsed_args.load is not None:
+                model.load_state_dict(torch.load(parsed_args.load))
+                model.to(utilities.get_device())  # save to GPU
+            
+            # train model from scratch
+            else:
+                model.to(utilities.get_device())  # save to GPU
+
+                # train data with current size of samples per category
+                train_features_loader, _ = utilities.train(
+                    pre_trained_model=extraction_model,
+                    model=model,
+                    train_loader=train_loader,
+                    valid_loader=valid_loader,
+                    params=parsed_args,
+                    current_size=current_size
+                )
 
         # extract features from model and use this with another specified metric to predict the categories
         if parsed_args.extract:
