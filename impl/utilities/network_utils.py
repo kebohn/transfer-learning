@@ -17,7 +17,7 @@ def train(
 ):
     # define loss and optimizer
     loss = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(params=model.parameters(), lr=params.lr, momentum=params.momentum)
+    optimizer = torch.optim.SGD(params=filter(lambda p: p.requires_grad, model.parameters()), lr=params.lr, momentum=params.momentum)
 
     # define running arrays
     valid_loss = []
@@ -144,9 +144,9 @@ def train(
                 print("Model starts to overfit, training stopped")
                 break
         
-            if params.decay:
-                # rate decay when validation loss / auc is not changing
-                scheduler.step(valid_auc[-1] if params.auc else current_valid_loss)
+        if params.decay:
+            # rate decay when validation loss / auc is not changing
+            scheduler.step(valid_auc[-1] if params.auc else current_valid_loss)
 
     # save model
     torch.save(

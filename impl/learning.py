@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import copy
-import torchvision
 import torch
 import data, models, utilities
 
@@ -25,7 +24,7 @@ def main():
     valid_loader = torch.utils.data.DataLoader(
         dataset=valid_data,
         batch_size=10,
-        shuffle=False,
+        shuffle=True,
         num_workers=8
     )
     test_loader = torch.utils.data.DataLoader(
@@ -88,7 +87,7 @@ def main():
         train_loader = torch.utils.data.DataLoader(
             dataset=train_data,
             batch_size=10,
-            shuffle=False,
+            shuffle=True,
             num_workers=8
         )
 
@@ -132,24 +131,24 @@ def main():
                     num_workers=8
                 )
 
-            # fine-tuned model case
-            elif parsed_args.finetune:
-                # copy the original model
-                model = copy.deepcopy(loaded_model)
-                model.to(utilities.get_device())  # save to GPU
+        # fine-tuned model case
+        elif parsed_args.finetune:
+            # copy the original model
+            model = copy.deepcopy(loaded_model)
 
-                # change last layer out neurons to respective number of classes from the dataset
-                models.update_last_layer(model, parsed_args.model_type, test_data.get_categories())
+            # change last layer out neurons to respective number of classes from the dataset
+            models.update_last_layer(model, parsed_args.model_type, test_data.get_categories())
+            model.to(utilities.get_device())  # save to GPU
 
-                # train data with current size of samples per category
-                train_features_loader, _ = utilities.train(
-                    pre_trained_model=extraction_model,
-                    model=model,
-                    train_loader=train_loader,
-                    valid_loader=valid_loader,
-                    params=parsed_args,
-                    current_size=current_size
-                )
+            # train data with current size of samples per category
+            train_features_loader, _ = utilities.train(
+                pre_trained_model=extraction_model,
+                model=model,
+                train_loader=train_loader,
+                valid_loader=valid_loader,
+                params=parsed_args,
+                current_size=current_size
+            )
 
         # extract features from model and use this with another specified metric to predict the categories
         if parsed_args.extract:
