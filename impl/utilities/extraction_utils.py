@@ -49,9 +49,9 @@ def extract_all_features(model, tr_loader, te_loader, ga_loader, current_size, p
 
 def load_features(current_size, params):
     ga_features = {}
-    tr_features = torch.load(F'{params.results}features_train_size_{current_size}.pt', map_location=get_device())
+    tr_features = torch.load(F'{params.load_features}features_train_size_{current_size}.pt', map_location=get_device())
     if params.k_gallery:
-        ga_features = torch.load(F'{params.results}features_gallery_size_{current_size}.pt', map_location=get_device())
+        ga_features = torch.load(F'{params.load_features}features_gallery_size_{current_size}.pt', map_location=get_device())
     return tr_features, ga_features
 
 

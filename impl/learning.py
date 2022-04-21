@@ -184,7 +184,7 @@ def main():
 
                 # load stores features from disk
                 if parsed_args.load_features:
-                    utilities.load_features(
+                    tr_features, ga_features = utilities.load_features(
                     current_size=current_size,
                     params=parsed_args)
                 else:
@@ -201,7 +201,7 @@ def main():
             else:
                 # load stores features from disk
                 if parsed_args.load_features:
-                    utilities.load_features(
+                    tr_features, ga_features = utilities.load_features(
                     current_size=current_size,
                     params=parsed_args)
                 else:
