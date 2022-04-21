@@ -64,7 +64,9 @@ def parse_arguments():
                         help='''Defines the model type that will be used for the pre-trained model, choose between
                         following parameters: [resnet50, alexnet, vgg16, vgg19, densenet] (Default: resnet50)''')
     parser.add_argument('--load', type=utilities.dir_path, dest='load',
-                    help='''Directory where model and features are stored''')
+                        help='''Directory where the model is stored''')
+    parser.add_argument('--load-features', type=utilities.dir_path, dest='load_features',
+                        help='''Directory where features are stored''')
     return parser.parse_args()
 
 

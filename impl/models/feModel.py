@@ -16,7 +16,7 @@ class FEModel(models.BaseModel):
         if model_type == 'resnet50':
             self.model.fc = models.IdentityModel()
         elif model_type == 'adaptive':
-            self.model.fc3 = models.IdentityModel()
+            self.model.fc2 = models.IdentityModel()
         else:
             if isinstance(model.classifier, torch.nn.Sequential):
                 self.model.classifier[-1] = models.IdentityModel()

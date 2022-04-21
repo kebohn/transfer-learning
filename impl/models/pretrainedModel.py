@@ -1,5 +1,6 @@
 import torchvision
 import torch
+import argparse
 
 
 def get_pretrained_model(model_type):
@@ -13,6 +14,8 @@ def get_pretrained_model(model_type):
         return torchvision.models.vgg19(pretrained=True)
     if model_type == 'densenet':
         return torchvision.models.densenet121(pretrained=True)
+    raise argparse.ArgumentTypeError(
+        f"model type: {model_type} is not a valid model")
 
 
 def set_param_gradient(layer, val):

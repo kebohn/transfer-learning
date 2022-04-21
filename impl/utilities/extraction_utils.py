@@ -35,10 +35,29 @@ def prepare_features_adaptive_training(pre_trained_model, train_loader, valid_fe
     return train_features_loader, valid_feature_loader
 
 
+def extract_all_features(model, tr_loader, te_loader, ga_loader, current_size, params):
+    ga_features = {}
+    tr_features = extract(model, tr_loader)
+    te_features = extract(model, te_loader)
+    torch.save(tr_features, F'{params.results}features_train_size_{current_size}.pt')
+    torch.save(te_features, F'{params.results}features_test_size_{current_size}.pt')
+    if params.k_gallery:
+        ga_features = extract(model, ga_loader)
+        torch.save(ga_features, F'{params.results}features_gallery_size_{current_size}.pt')
+    return tr_features, ga_features
+
+
+def load_features(current_size, params):
+    ga_features = {}
+    tr_features = torch.load(F'{params.results}features_train_size_{current_size}.pt', map_location=get_device())
+    if params.k_gallery:
+        ga_features = torch.load(F'{params.results}features_gallery_size_{current_size}.pt', map_location=get_device())
+    return tr_features, ga_features
+
+
 def extract(model, train_loader):
     print("Extract features...")
     res = {}
-
     # iterate over training data
     for values, _, names, _ in train_loader:
         features = model.extract(values)  # extract features for whole batch

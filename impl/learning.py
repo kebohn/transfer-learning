@@ -7,6 +7,7 @@ import data, models, utilities
 def main():
     parsed_args = utilities.parse_arguments()
     current_size = parsed_args.step
+    gallery_loader = {}
     res = {}
 
     print("Prepare datasets...")
@@ -151,8 +152,10 @@ def main():
 
             # load model from disk
             if parsed_args.load is not None:
-                model.load_state_dict(torch.load(parsed_args.load))
+                path = utilities.find_file_path(parsed_args, current_size)
+                model.load_state_dict(torch.load(path))
                 model.to(utilities.get_device())  # save to GPU
+                train_features_loader = copy.deepcopy(train_loader)
             
             # train model from scratch
             else:
@@ -170,7 +173,6 @@ def main():
 
         # extract features from model and use this with another specified metric to predict the categories
         if parsed_args.extract:
-
             if parsed_args.adaptive or parsed_args.finetune:
 
                 # define trained adaptive extraction model
@@ -180,21 +182,38 @@ def main():
                     device=utilities.get_device()
                 )
 
-                # extract features from trained model
-                tr_features = utilities.extract(learned_extraction_model, train_features_loader)
-                te_features = utilities.extract(learned_extraction_model, test_loader)
-                if parsed_args.k_gallery:
-                    ga_features = utilities.extract(learned_extraction_model, gallery_loader)
+                # load stores features from disk
+                if parsed_args.load_features:
+                    utilities.load_features(
+                    current_size=current_size,
+                    params=parsed_args)
+                else:
+                    # extract features from trained model
+                    tr_features, ga_features = utilities.extract_all_features(
+                        model=learned_extraction_model,
+                        tr_loader=train_features_loader,
+                        te_loader=test_loader,
+                        ga_loader=gallery_loader,
+                        current_size=current_size,
+                        params=parsed_args
+                    )
 
             else:
-                tr_features = utilities.extract(extraction_model, train_loader)
-                te_features = utilities.extract(extraction_model, test_loader)
-                if parsed_args.k_gallery:
-                    ga_features = utilities.extract(extraction_model, gallery_loader)
-
-            # save features
-            torch.save(tr_features, F'{parsed_args.results}features_train_size_{current_size}.pt')
-            torch.save(te_features, F'{parsed_args.results}features_test_size_{current_size}.pt')
+                # load stores features from disk
+                if parsed_args.load_features:
+                    utilities.load_features(
+                    current_size=current_size,
+                    params=parsed_args)
+                else:
+                    # extract features from pretrained model
+                    tr_features, ga_features = utilities.extract_all_features(
+                        model=extraction_model,
+                        tr_loader=train_loader,
+                        te_loader=test_loader,
+                        ga_loader=gallery_loader,
+                        current_size=current_size,
+                        params=parsed_args
+                    )
 
             # run prediction
             res[current_size] = utilities.predict(
