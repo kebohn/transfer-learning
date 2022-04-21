@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy
 import torch
 import argparse
+import os
 
 
 vis = {}  # dict stores all layer outputs
@@ -43,6 +44,10 @@ def parse_arguments():
                         This creates a stacked visualization from the diagonal confusion matrix for each dataset (absolute dir)''')
     parser.add_argument('--k-confusion', dest='k_confusion', type=int, default=5,
                         help='''k defines the used samples per category for confusion matrix construction (Default: 5)''')
+    parser.add_argument('--datasets', type=utilities.dir_path,
+                        help='Directory where datasets for accuracy plot are stored (absolute dir)')
+    parser.add_argument('--acc-title', type=str, dest='acc_title', default="indoor",
+                        help='Title for accuracy plot')
     return parser.parse_args()
 
 
@@ -114,6 +119,18 @@ def save_scatter_plot(features, proj, num_categories, name):
     plt.close()
 
 
+def save_acc_plots(res, name):
+    plt.figure()
+    for _,val in res.items(): # plot line for each dataset
+      plt.plot(val["steps"], val["accuracy"])
+    plt.xlabel('Training Size')
+    plt.ylabel('Accuracy')
+    plt.grid()
+    plt.title(name)
+    plt.legend(list(res.keys()), loc='lower right')
+    plt.savefig(F'{name}_total_acc.jpg')
+
+
 def normalize_features(features):
     # combine features into one tensor
     vals = torch.cat(tuple(features.values()), dim=0)
@@ -134,6 +151,22 @@ def normalize(features, norm):
 
 def main():
     parsed_args = parse_arguments()
+
+    if parsed_args.datasets is not None:
+        res = {}
+        for file in os.listdir(parsed_args.datasets):
+            dataset_name = os.fsdecode(file)
+            dataset = utilities.load_json_file(F'{parsed_args.datasets}{file}')
+            steps = []
+            accs = []
+            for key, val in dataset.items(): # only consider total accuracies for each metric
+                steps.append(key)
+                accs.append(val["total_acc"])
+            res[dataset_name] = {
+                "steps": steps,
+                "accuracy": accs,
+            }
+        save_acc_plots(dict(sorted(res.items())), parsed_args.acc_title)
 
     if parsed_args.features is not None:
         features = torch.load(parsed_args.features)
