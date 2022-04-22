@@ -10,8 +10,8 @@ def get_pretrained_model(model_type):
         return torchvision.models.alexnet(pretrained=True)
     if model_type == 'vgg16':
         return torchvision.models.vgg16(pretrained=True)
-    if model_type == 'vgg19':
-        return torchvision.models.vgg19(pretrained=True)
+    if model_type == 'mobilenet':
+        return torchvision.models.mobilenet_v3_small(pretrained=True)
     if model_type == 'densenet':
         return torchvision.models.densenet121(pretrained=True)
     raise argparse.ArgumentTypeError(

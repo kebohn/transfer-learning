@@ -63,8 +63,10 @@ def main():
     if parsed_args.adaptive:
         last_layer = models.get_last_layer(loaded_model, parsed_args.model_type)
         adaptive_model = models.AdaptiveModel(
-            in_features=last_layer.in_features,
-            num_categories=test_data.get_categories()
+            fc1_in=last_layer.in_features,
+            fc1_out=parsed_args.fc1_out,
+            feature_size=parsed_args.feature_size,
+            category_size=test_data.get_categories()
         )
         valid_features = utilities.extract(extraction_model, valid_loader)
         test_features = utilities.extract(extraction_model, test_loader)

@@ -57,6 +57,10 @@ def parse_arguments():
                         help='Define learning rate (Default: 0.01)')
     parser.add_argument('--momentum', type=float, dest='momentum',
                         default=0.9, help='Define momentum parameter (Default: 0.9)')
+    parser.add_argument('--feature-size', type=int, dest='feature_size',
+                        default=16, help='Define number of hidden neurons in adaption model - represents size of features in FE-mode (Default: 16)')
+    parser.add_argument('--fc1_out', type=int, dest='fc1_out',
+                        default=256, help='Define number of output neurons first fully connected layer in adaption model (Default: 256)')
     parser.add_argument('--k-gallery', dest='k_gallery', action='store_true',
                         help='''k-most similar features (computed with cosine distance) are used for the gallery,
                         the selected features are excluded from training (Default: -1)''')
