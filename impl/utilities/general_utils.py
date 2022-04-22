@@ -28,10 +28,10 @@ def parse_arguments():
                         help='Apply Support Vector Machine')
     parser.add_argument('--k', type=int, dest='k', default=5,
                         help='Define k for kNN algorithm (Default: 5)')
-    parser.add_argument('--step', type=int, dest='step', default=5,
-                        help='Define step with which training set should be increased (Default: k=5)')
     parser.add_argument('--max-size', type=int, dest='max_size', default=5,
                         help='Define maximum samples per class (Default: k=5)')
+    parser.add_argument('--num_steps', type=int, dest='num_steps', default=5,
+                        help='Define number of steps with which training set should be increased - could be slightly change because of logscale (Default: k=15)')
     parser.add_argument('--unbalanced', dest='unbalanced', action='store_true',
                         help='Define if dataset is unbalanced (Default: false)')
     parser.add_argument('--early-stop', dest='early_stop', action='store_true',

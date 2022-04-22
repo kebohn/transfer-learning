@@ -15,4 +15,5 @@ class AdaptiveModel(torch.nn.Module):
     def forward(self, x):
         x = self.activation(self.fc1(x))
         x = self.fc2(self.dropout(x))
+        x = self.fc3(x)
         return x
