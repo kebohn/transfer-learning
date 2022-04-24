@@ -79,8 +79,12 @@ def extract(model, train_loader):
 
 
 def save_training_size_plot(res_dir, res):
-    plt.figure()
-    plt.plot(list(res.keys()), [obj["total_acc"] for obj in res.values()])
+    fig = plt.figure()
+    axis = fig.add_subplot(111)
+    sizes = list(res.keys())
+    x_vals = numpy.arange(0, sizes[-1] + 5, 5) # define ticks with gap of 5
+    axis.plot(sizes, [obj["total_acc"] for obj in res.values()], marker='+')
+    axis.xaxis.set_ticks(x_vals)
     plt.xlabel('Training Size')
     plt.ylabel('Accuracy')
     plt.savefig(F'{res_dir}total_acc.jpg')

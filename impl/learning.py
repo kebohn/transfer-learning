@@ -76,7 +76,7 @@ def main():
 
     # define log steps starting from 1 till max_size
     steps = numpy.logspace(0.1, numpy.log10(parsed_args.max_size), num=parsed_args.num_steps, endpoint=True, dtype=int)
-    steps = numpy.unique(steps) # remove duplicates - especially occurs at the beginning of list
+    steps = numpy.unique(steps).tolist() # remove duplicates - especially occurs at the beginning of list
     steps[-1] = parsed_args.max_size # make sure we do not have a rounding error
 
     # iterate over steps
@@ -234,7 +234,7 @@ def main():
         # use the model to classify the images
         else:
             res[current_size] = utilities.test(model, test_loader)
-
+            
     utilities.save_json_file(F'{parsed_args.results}res', res)
     utilities.save_training_size_plot(parsed_args.results, res)
 
