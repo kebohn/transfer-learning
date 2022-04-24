@@ -3,6 +3,7 @@ import data, utilities
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy
 import torch
 import argparse
@@ -120,9 +121,27 @@ def save_scatter_plot(features, proj, num_categories, name):
 
 
 def save_acc_plots(res, name):
-    plt.figure()
+    fig = plt.figure()
+    axis = fig.add_subplot(111)
+    max_size = int(list(res.values())[0]['steps'][-1]) # get max size from first dataset
+    tick_vals = []
+    # construct ticklabels such that smaller sizes are more represented than larger ones
+    if max_size > 10:
+        tick_vals_smll = numpy.arange(1, 10 + 1, 1)
+        tick_vals_lrg = numpy.arange(10, max_size + 10, 10)
+        tick_vals = list(numpy.concatenate([tick_vals_smll, tick_vals_lrg]))
+    else:
+        tick_vals_lrg = numpy.arange(0, max_size + 10, 10)
+        tick_vals_lrg[0] = 1 # replace first tick with 1
+
     for _,val in res.items(): # plot line for each dataset
-      plt.plot(val["steps"], val["accuracy"])
+        axis.plot(list(map(int, val['steps'])), val['accuracy'], marker='+')
+    
+    axis.set_xscale('log')
+    axis.xaxis.set_ticks(tick_vals)
+    axis.xaxis.set_major_formatter(mticker.FormatStrFormatter("%d"))
+    axis.minorticks_off()
+    axis.tick_params(axis='both', which='major', labelsize=8)
     plt.xlabel('Training Size')
     plt.ylabel('Accuracy')
     plt.grid()

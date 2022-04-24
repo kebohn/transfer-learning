@@ -1,6 +1,7 @@
 from utilities.cuda import get_device
 import torch
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy
 import collections
 import models
@@ -82,11 +83,24 @@ def save_training_size_plot(res_dir, res):
     fig = plt.figure()
     axis = fig.add_subplot(111)
     sizes = list(res.keys())
-    x_vals = numpy.arange(0, sizes[-1] + 5, 5) # define ticks with gap of 5
+    # construct ticklabels such that smaller sizes are more represented than larger ones
+    if sizes[-1] > 10:
+        tick_vals_smll = numpy.arange(1, 10 + 1, 1)
+        tick_vals_lrg = numpy.arange(10, sizes[-1] + 10, 10)
+        tick_vals = list(numpy.concatenate([tick_vals_smll, tick_vals_lrg]))
+    else:
+        tick_vals_lrg = numpy.arange(0, sizes[-1] + 10, 10)
+        tick_vals_lrg[0] = 1 # replace first tick with 1
+
     axis.plot(sizes, [obj["total_acc"] for obj in res.values()], marker='+')
-    axis.xaxis.set_ticks(x_vals)
+    axis.set_xscale('log')
+    axis.xaxis.set_ticks(tick_vals)
+    axis.xaxis.set_major_formatter(mticker.FormatStrFormatter("%d"))
+    axis.minorticks_off()
+    axis.tick_params(axis='both', which='major', labelsize=8)
     plt.xlabel('Training Size')
     plt.ylabel('Accuracy')
+    plt.grid()
     plt.savefig(F'{res_dir}total_acc.jpg')
     plt.close()
 
