@@ -9,18 +9,19 @@ import data, models, utilities
 def main():
     parsed_args = utilities.parse_arguments()
     gallery_loader = {}
+    size_has_changed = False
     res = {}
 
     print("Prepare datasets...")
     valid_data = data.CustomImageDataset(
-        'data.csv',
-        parsed_args.d_valid,
-        utilities.test_transforms()
+        annotations_file='data.csv',
+        img_dir=parsed_args.d_valid,
+        transform=utilities.test_transforms()
     )
     test_data = data.CustomImageDataset(
-        'data.csv',
-        parsed_args.d_test,
-        utilities.test_transforms()
+        annotations_file='data.csv',
+        img_dir=parsed_args.d_test,
+        transform=utilities.test_transforms()
     )
 
     valid_loader = torch.utils.data.DataLoader(
@@ -40,9 +41,9 @@ def main():
     if parsed_args.k_gallery:
 
         gallery_data = data.CustomImageDataset(
-            'gallery.csv',
-            parsed_args.d,
-            utilities.test_transforms()
+            annotations_file='gallery.csv',
+            img_dir=parsed_args.d,
+            transform=utilities.test_transforms()
         )
 
         gallery_loader = torch.utils.data.DataLoader(
@@ -81,6 +82,10 @@ def main():
 
     # iterate over steps
     for current_size in steps:
+        if size_has_changed:
+            print(F'Max possible size per category reached: {current_size}')
+            break
+
         print(F'Using {current_size} images per category...')
 
         # clear cache after each iteration
@@ -88,10 +93,10 @@ def main():
 
         # load training data
         train_data = data.CustomImageDataset(
-            'training.csv' if parsed_args.k_gallery else 'data.csv',
-            parsed_args.d,
-            utilities.test_transforms() if parsed_args.pretrain else utilities.train_transforms(),
-            current_size
+            annotations_file='training.csv' if parsed_args.k_gallery else 'data.csv',
+            img_dir=parsed_args.d,
+            transform=utilities.test_transforms() if parsed_args.pretrain else utilities.train_transforms(),
+            samples=current_size
         )
         train_loader = torch.utils.data.DataLoader(
             dataset=train_data,
@@ -99,6 +104,9 @@ def main():
             shuffle=True,
             num_workers=8
         )
+
+        # reassign the current size because it may be changed in the custom image dataset object
+        current_size, size_has_changed = train_data.get_current_cat_size()
 
         # adaptive model case
         if parsed_args.adaptive:

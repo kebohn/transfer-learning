@@ -31,7 +31,7 @@ def parse_arguments():
     parser.add_argument('--max-size', type=int, dest='max_size', default=5,
                         help='Define maximum samples per class (Default: k=5)')
     parser.add_argument('--num_steps', type=int, dest='num_steps', default=5,
-                        help='Define number of steps with which training set should be increased - could be slightly change because of logscale (Default: k=15)')
+                        help='Define number of steps with which training set should be increased - could be slightly changed because of logscale (Default: k=15)')
     parser.add_argument('--unbalanced', dest='unbalanced', action='store_true',
                         help='Define if dataset is unbalanced (Default: false)')
     parser.add_argument('--early-stop', dest='early_stop', action='store_true',
@@ -66,7 +66,7 @@ def parse_arguments():
                         the selected features are excluded from training (Default: -1)''')
     parser.add_argument('--model-type', type=str, dest='model_type', default="resnet50",
                         help='''Defines the model type that will be used for the pre-trained model, choose between
-                        following parameters: [resnet50, alexnet, vgg16, vgg19, densenet] (Default: resnet50)''')
+                        following parameters: [resnet50, alexnet, vgg16, mobilenet, densenet] (Default: resnet50)''')
     parser.add_argument('--load', type=utilities.dir_path, dest='load',
                         help='''Directory where the model is stored''')
     parser.add_argument('--load-features', type=utilities.dir_path, dest='load_features',
