@@ -11,7 +11,7 @@ def get_pretrained_model(model_type):
     if model_type == 'vgg16':
         return torchvision.models.vgg16(pretrained=True)
     if model_type == 'mobilenet':
-        return torchvision.models.mobilenet_v3_small(pretrained=True)
+        return torchvision.models.mobilenet_v3_large(pretrained=True, width_mult=1.0,  reduced_tail=False, dilated=False)
     if model_type == 'densenet':
         return torchvision.models.densenet121(pretrained=True)
     raise argparse.ArgumentTypeError(
