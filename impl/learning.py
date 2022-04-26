@@ -10,6 +10,7 @@ def main():
     parsed_args = utilities.parse_arguments()
     gallery_loader = {}
     size_has_changed = False
+    load = parsed_args.load is not None
     res = {}
 
     print("Prepare datasets...")
@@ -114,14 +115,16 @@ def main():
             model = copy.deepcopy(adaptive_model)
 
             # load model from disk
-            if parsed_args.load is not None:
+            if load:
                 path = utilities.find_file_path(parsed_args, current_size)
-                model.load_state_dict(torch.load(path))
-                model.to(utilities.get_device())  # save to GPU
-                train_features_loader, _ = utilities.prepare_features_adaptive_training(extraction_model, train_loader, valid_features)
-
+                if path:
+                    model.load_state_dict(torch.load(path))
+                    model.to(utilities.get_device())  # save to GPU
+                    train_features_loader, _ = utilities.prepare_features_adaptive_training(extraction_model, train_loader, valid_features)
+                else:
+                    load = False
             # train model from scratch
-            else:
+            if not load:
                 model.to(utilities.get_device())  # save to GPU
 
                 # train data with current size of samples per category
@@ -167,14 +170,17 @@ def main():
             models.update_last_layer(model, parsed_args.model_type, test_data.get_categories())
 
             # load model from disk
-            if parsed_args.load is not None:
+            if load:
                 path = utilities.find_file_path(parsed_args, current_size)
-                model.load_state_dict(torch.load(path))
-                model.to(utilities.get_device())  # save to GPU
-                train_features_loader = copy.deepcopy(train_loader)
+                if path:
+                    model.load_state_dict(torch.load(path))
+                    model.to(utilities.get_device())  # save to GPU
+                    train_features_loader = copy.deepcopy(train_loader)
+                else:
+                    load = False
             
             # train model from scratch
-            else:
+            if not load:
                 model.to(utilities.get_device())  # save to GPU
 
                 # train data with current size of samples per category
