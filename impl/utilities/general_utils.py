@@ -111,8 +111,7 @@ def load_multiple_json_files(path):
 
 
 def find_file_path(params, current_size):
-    try:
-        # return single model path with wildcard at the end
-        return glob.glob(F"{params.load}model_size_{current_size}_lr_{params.lr}_*.pth")[0] 
-    except IOError:
-        return ""
+    # return single model path with wildcard at the end
+    path = glob.glob(F"{params.load}model_size_{current_size}_lr_{params.lr}_*.pth")
+    return path[0] if path else ""
+    

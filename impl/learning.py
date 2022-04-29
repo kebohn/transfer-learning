@@ -27,13 +27,13 @@ def main():
 
     valid_loader = torch.utils.data.DataLoader(
         dataset=valid_data,
-        batch_size=10,
+        batch_size=16,
         shuffle=True,
         num_workers=8
     )
     test_loader = torch.utils.data.DataLoader(
         dataset=test_data,
-        batch_size=10 if parsed_args.adaptive else 1,
+        batch_size=16 if parsed_args.adaptive else 1,
         shuffle=False,
         num_workers=8
     )
@@ -49,7 +49,7 @@ def main():
 
         gallery_loader = torch.utils.data.DataLoader(
             dataset=gallery_data,
-            batch_size=len(gallery_data),
+            batch_size=16,
             shuffle=False,
             num_workers=8
         )
@@ -101,7 +101,7 @@ def main():
         )
         train_loader = torch.utils.data.DataLoader(
             dataset=train_data,
-            batch_size=10,
+            batch_size=16,
             shuffle=True,
             num_workers=8
         )
@@ -156,7 +156,7 @@ def main():
                 gallery_data_adaptive = data.FeatureDataset(gallery_features_norm)
                 gallery_loader = torch.utils.data.DataLoader(
                     dataset=gallery_data_adaptive,
-                    batch_size=len(gallery_data_adaptive),
+                    batch_size=16,
                     shuffle=False,
                     num_workers=8
                 )

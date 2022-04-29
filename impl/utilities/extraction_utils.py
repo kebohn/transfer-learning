@@ -23,7 +23,7 @@ def prepare_features_adaptive_training(pre_trained_model, train_loader, valid_fe
     # handle trainig features like a dataset
     train_features_data = data.FeatureDataset(train_features_norm)
     train_features_loader = torch.utils.data.DataLoader(
-        dataset=train_features_data, batch_size=10, shuffle=True)
+        dataset=train_features_data, batch_size=16, shuffle=True)
 
     # normalize validation features according train normalization
     valid_features_norm = pre_trained_model.normalize_test(valid_features)
@@ -31,7 +31,7 @@ def prepare_features_adaptive_training(pre_trained_model, train_loader, valid_fe
     # handle validation features like a dataset
     valid_features_data = data.FeatureDataset(valid_features_norm)
     valid_feature_loader = torch.utils.data.DataLoader(
-        dataset=valid_features_data, batch_size=10, shuffle=False)
+        dataset=valid_features_data, batch_size=16, shuffle=False)
 
     return train_features_loader, valid_feature_loader
 
