@@ -48,3 +48,31 @@ The following Datasets are used to examine the approaches:
 - Indoor http://wb.mit.edu/torralba/www/indoor.html
 
 - Office https://link.springer.com/chapter/10.1007/978-3-642-15561-1_16
+
+#### Installation
+
+In order to execute the scripts properly you need to install the dependencies from the `requirements.txt` file
+
+##### Virtual Environment
+
+To use this option the following dependencies must be installed: 
+  - python3
+  - python3-pip
+  - python3-virtualenv
+
+1. Create a virtual environment from project root:  `virtualenv ve`
+
+2. Enter the virtual environment: `. ve/bin/activate`
+
+2. Install project dependencies: `pip install -r requirements.txt`
+
+
+##### Anaconda
+
+In order to install the dependencies with this option Anaconda or Miniconda must be installed first. (https://docs.conda.io/projects/conda/en/latest/user-guide/install)
+
+1. Create conda environment:  `conda create --name ve`
+
+2. Enter the virtual environment: `source activate ve`
+
+2. Install your dependencies: `conda install --file requirements.txt`
